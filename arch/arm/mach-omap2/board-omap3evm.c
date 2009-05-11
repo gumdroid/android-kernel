@@ -522,8 +522,8 @@ static int ads7846_get_pendown_state(void)
 }
 
 struct ads7846_platform_data ads7846_config = {
-	.x_max                  = 0x0fff,
-	.y_max                  = 0x0fff,
+	.x_max			= 0x01e0,
+	.y_max			= 0x0280,
 	.x_plate_ohms           = 180,
 	.pressure_max           = 255,
 	.debounce_max           = 10,

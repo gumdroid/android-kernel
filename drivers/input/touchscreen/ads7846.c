@@ -98,6 +98,7 @@ struct ads7846 {
 	u16			pressure_max;
 
 	struct ads7846_packet	*packet;
+	struct ads7846_platform_data	*pdata;
 
 	struct spi_transfer	xfer[18];
 	struct spi_message	msg[5];
@@ -128,6 +129,15 @@ struct ads7846 {
 	int			(*get_pendown_state)(void);
 	int			gpio_pendown;
 };
+
+#ifdef CONFIG_MACH_OMAP3EVM
+
+#define OMAP3EVM_XMIN		0x136
+#define OMAP3EVM_XMAX		0xe84
+#define OMAP3EVM_YMIN		0x0d9
+#define OMAP3EVM_YMAX		0xec6
+
+#endif
 
 /* leave chip selected when we're done, for quicker re-select? */
 #if	0
@@ -523,6 +533,7 @@ static void ads7846_rx(void *ads)
 {
 	struct ads7846		*ts = ads;
 	struct ads7846_packet	*packet = ts->packet;
+	struct ads7846_platform_data *pdata = ts->pdata;
 	unsigned		Rt;
 	u16			x, y, z1, z2;
 
@@ -593,6 +604,14 @@ static void ads7846_rx(void *ads)
 			dev_dbg(&ts->spi->dev, "DOWN\n");
 #endif
 		}
+
+#ifdef CONFIG_MACH_OMAP3EVM
+		x = pdata->x_max -
+			((pdata->x_max * (x - OMAP3EVM_XMIN)) / (OMAP3EVM_XMAX- OMAP3EVM_XMIN));
+		y = pdata->y_max -
+			((pdata->y_max * (y - OMAP3EVM_YMIN)) / (OMAP3EVM_YMAX - OMAP3EVM_YMIN));
+#endif
+
 		input_report_abs(input, ABS_X, x);
 		input_report_abs(input, ABS_Y, y);
 		input_report_abs(input, ABS_PRESSURE, Rt);
@@ -914,6 +933,7 @@ static int __devinit ads7846_probe(struct spi_device *spi)
 
 	dev_set_drvdata(&spi->dev, ts);
 
+	ts->pdata = pdata;
 	ts->packet = packet;
 	ts->spi = spi;
 	ts->input = input_dev;
