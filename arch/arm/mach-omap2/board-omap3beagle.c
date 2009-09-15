@@ -299,6 +299,20 @@ static struct platform_device keys_gpio = {
 	},
 };
 
+#ifdef CONFIG_FB_OMAP2
+static struct resource omap3beagle_vout_resource[3 - CONFIG_FB_OMAP2_NUM_FBS] = {
+};
+#else /* CONFIG_FB_OMAP2 */
+static struct resource omap3beagle_vout_resource[2] = {
+};
+#endif /* CONFIG_FB_OMAP2 */
+static struct platform_device omap3beagle_vout_device = {
+	.name		= "omap_vout",
+	.num_resources	= ARRAY_SIZE(omap3beagle_vout_resource),
+	.resource 	= &omap3beagle_vout_resource[0],
+	.id		= -1,
+};
+
 /* DSS */
 
 static int beagle_enable_dvi(struct omap_display *display)
@@ -386,6 +400,7 @@ static struct omap_board_config_kernel omap3_beagle_config[] __initdata = {
 
 static struct platform_device *omap3_beagle_devices[] __initdata = {
 	&beagle_dss_device,
+	&omap3beagle_vout_device,
 	&leds_gpio,
 	&keys_gpio,
 };
