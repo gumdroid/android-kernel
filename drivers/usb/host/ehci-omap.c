@@ -42,6 +42,8 @@
  */
 #ifdef CONFIG_OMAP3EVM_MISTRAL_DC
 #define EXT_PHY_RESET_GPIO_PORT2        (135)
+#elif CONFIG_MACH_OMAP3_BEAGLE
+#define EXT_PHY_RESET_GPIO_PORT2        (147)
 #elif CONFIG_OMAP3430SDP_750_2083_001
 #define	EXT_PHY_RESET_GPIO_PORT1	(57)
 #define	EXT_PHY_RESET_GPIO_PORT2	(61)
@@ -50,7 +52,8 @@
 #if defined(CONFIG_OMAP_EHCI_PHY_MODE_PORT1)	|| \
 	defined(CONFIG_OMAP_EHCI_PHY_MODE_PORT2)
 
-#ifdef CONFIG_OMAP3430SDP_750_2083_001
+#if defined(CONFIG_OMAP3430SDP_750_2083_001) || \
+    defined(CONFIG_MACH_OMAP3_BEAGLE)
 /* ISSUE1:
  *      ISP1504 for input clocking mode needs special reset handling
  *	Hold the PHY in reset by asserting RESET_N signal
@@ -63,13 +66,18 @@
 #define EXTERNAL_PHY_RESET
 #define	EXT_PHY_RESET_DELAY		(10)
 
+#define PHY_STP_PULLUP_ENABLE		(0x10)
+#define PHY_STP_PULLUP_DISABLE		(0x90)
+
 /* ISSUE2:
  * USBHOST supports External charge pump PHYs only
  * Use the VBUS from Port1 to power VBUS of Port2 externally
  * So use Port2 as the working ULPI port
  * This is not required for Mistral/Multimedia daughter card on OMAP3EVM.
  */
+#ifndef CONFIG_MACH_OMAP3_BEAGLE
 #define VBUS_INTERNAL_CHARGEPUMP_HACK
+#endif
 #endif /* CONFIG_OMAP3430SDP_750_2083_001 */
 
 #endif
@@ -243,13 +251,42 @@ static int omap_start_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 
 #ifdef EXTERNAL_PHY_RESET
 	/* Refer: ISSUE1 */
+#ifndef CONFIG_MACH_OMAP3_BEAGLE
 	gpio_request(EXT_PHY_RESET_GPIO_PORT1, "USB1 PHY reset");
 	gpio_direction_output(EXT_PHY_RESET_GPIO_PORT1, 0);
+#endif
 	gpio_request(EXT_PHY_RESET_GPIO_PORT2, "USB2 PHY reset");
 	gpio_direction_output(EXT_PHY_RESET_GPIO_PORT2, 0);
+	gpio_set_value(EXT_PHY_RESET_GPIO_PORT2, 0);
 	/* Hold the PHY in RESET for enough time till DIR is high */
 	udelay(EXT_PHY_RESET_DELAY);
 #endif
+
+        /*
+         * The PHY register 0x7 - Interface Control register is
+         * configured to disable the integrated STP pull-up resistor
+         * used for interface protection.
+        *
+        * May not need to be here.
+         */
+        omap_writel((0x7 << EHCI_INSNREG05_ULPI_REGADD_SHIFT) |/* interface reg */
+                (2 << EHCI_INSNREG05_ULPI_OPSEL_SHIFT) |/*   Write */
+                (1 << EHCI_INSNREG05_ULPI_PORTSEL_SHIFT) |/* Port1 */
+                (1 << EHCI_INSNREG05_ULPI_CONTROL_SHIFT) |/* Start */
+                (PHY_STP_PULLUP_DISABLE),
+                EHCI_INSNREG05_ULPI);
+
+        while (!(omap_readl(EHCI_INSNREG05_ULPI) & (1<<EHCI_INSNREG05_ULPI_CONTROL_SHIFT)));
+
+        /* Force PHY to HS */
+        omap_writel((0x4 << EHCI_INSNREG05_ULPI_REGADD_SHIFT) |/* function ctrl */
+                (2 << EHCI_INSNREG05_ULPI_OPSEL_SHIFT) |/*   Write */
+                (1 << EHCI_INSNREG05_ULPI_PORTSEL_SHIFT) |/* Port1 */
+                (1 << EHCI_INSNREG05_ULPI_CONTROL_SHIFT) |/* Start */
+                (0x40),
+                EHCI_INSNREG05_ULPI);
+
+        while (!(omap_readl(EHCI_INSNREG05_ULPI) & (1<<EHCI_INSNREG05_ULPI_CONTROL_SHIFT)));
 
 	/* Configure TLL for 60Mhz clk for ULPI */
 	ehci_clocks->usbtll_fck_clk = clk_get(&dev->dev, USBHOST_TLL_FCLK);
@@ -366,7 +403,9 @@ static int omap_start_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 	 * Hold the PHY in RESET for enough time till PHY is settled and ready
 	 */
 	udelay(EXT_PHY_RESET_DELAY);
+#ifndef CONFIG_MACH_OMAP3_BEAGLE
 	gpio_set_value(EXT_PHY_RESET_GPIO_PORT1, 1);
+#endif
 	gpio_set_value(EXT_PHY_RESET_GPIO_PORT2, 1);
 #endif
 
@@ -452,7 +491,9 @@ static void omap_stop_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 
 
 #ifdef EXTERNAL_PHY_RESET
+#ifndef CONFIG_MACH_OMAP3_BEAGLE
 	gpio_free(EXT_PHY_RESET_GPIO_PORT1);
+#endif
 	gpio_free(EXT_PHY_RESET_GPIO_PORT2);
 #endif
 

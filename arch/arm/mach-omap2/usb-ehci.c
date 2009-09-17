@@ -145,9 +145,12 @@ static void setup_ehci_io_mux(void)
 void __init usb_ehci_init(void)
 {
 #if     defined(CONFIG_USB_EHCI_HCD) || defined(CONFIG_USB_EHCI_HCD_MODULE)
+#ifndef CONFIG_MACH_OMAP3_BEAGLE 
+	/* TODO: Setup Pin IO MUX for EHCI - moved this temporarily to U-boot */
 	/* Setup Pin IO MUX for EHCI */
 	if (cpu_is_omap34xx())
 		setup_ehci_io_mux();
+#endif
 
 	if (platform_device_register(&ehci_device) < 0) {
 		printk(KERN_ERR "Unable to register HS-USB (EHCI) device\n");

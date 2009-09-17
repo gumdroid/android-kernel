@@ -146,6 +146,7 @@ static int beagle_twl_gpio_setup(struct device *dev,
 	 * power switch and overcurrent detect
 	 */
 
+#if 0 /* TODO: This needs to be modified to not rely on u-boot */
 	gpio_request(gpio + 1, "EHCI_nOC");
 	gpio_direction_input(gpio + 1);
 
@@ -155,7 +156,7 @@ static int beagle_twl_gpio_setup(struct device *dev,
 
 	/* TWL4030_GPIO_MAX + 1 == ledB, PMU_STAT (out, active low LED) */
 	gpio_leds[2].gpio = gpio + TWL4030_GPIO_MAX + 1;
-
+#endif
 	return 0;
 }
 
