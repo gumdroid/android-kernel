@@ -282,8 +282,8 @@ static int __init omap_kp_probe(struct platform_device *pdev)
 		set_bit(kp->keymap[i] & KEYNUM_MASK,
 				kp->omap_twl4030kp->keybit);
 
-	kp->omap_twl4030kp->name	= "omap_twl4030keypad";
-	kp->omap_twl4030kp->phys	= "omap_twl4030keypad/input0";
+	kp->omap_twl4030kp->name	= "TWL4030 Keypad";
+	kp->omap_twl4030kp->phys	= "twl4030_keypad/input0";
 	kp->omap_twl4030kp->dev.parent	= &pdev->dev;
 
 	kp->omap_twl4030kp->id.bustype	= BUS_HOST;
