@@ -77,6 +77,35 @@ config SENSORS_PCF8591
 	  These devices are hard to detect and rarely found on mainstream
 	  hardware.  If unsure, say N.
 
+config TWL4030_MADC
+	tristate "TWL4030 MADC Driver"
+	depends on TWL4030_CORE
+	help
+	  The TWL4030 Monitoring ADC driver enables the host
+	  processor to monitor analog signals using analog-to-digital
+	  conversions on the input source. TWL4030 MADC provides the
+	  following features:
+	   - Single 10-bit ADC with successive approximation register (SAR) conversion;
+	   - Analog multiplexer for 16 inputs;
+	   - Seven (of the 16) inputs are freely available;
+	   - Battery voltage monitoring;
+	   - Concurrent conversion request management;
+	   - Interrupt signal to Primary Interrupt Handler;
+	   - Averaging feature;
+	   - Selective enable/disable of the averaging feature.
+
+	  Say 'y' here to statically link this module into the kernel or 'm'
+	  to build it as a dinamically loadable module. The module will be
+	  called twl4030-madc.ko
+
+config TWL4030_PWRBUTTON
+	tristate "TWL4030 Power button Driver"
+	depends on TWL4030_CORE
+
+config TWL4030_POWEROFF
+	tristate "TWL4030 device poweroff"
+	depends on TWL4030_CORE
+
 config SENSORS_MAX6875
 	tristate "Maxim MAX6875 Power supply supervisor"
 	depends on EXPERIMENTAL
@@ -111,5 +140,32 @@ config SENSORS_PCA963X
 
 	 This driver can also be built as a module.  If so, the module
 	 will be called pca963X.
+
+config SENSORS_TSL2563
+       tristate "Taos TSL2563 ambient light sensor"
+       depends on I2C && HWMON
+       help
+         If you say yes here you get support for the Taos TSL2563
+         ambient light sensor.
+
+         This driver can also be built as a module.  If so, the module
+         will be called tsl2563.
+
+config LP5521
+	tristate "LP5521 LED driver chip"
+	depends on I2C
+	help
+	  If you say yes here you get support for the National Semiconductor
+	  LP5521 LED driver.
+
+config MENELAUS
+	bool "TWL92330/Menelaus PM chip"
+	depends on I2C=y && ARCH_OMAP24XX
+	help
+	  If you say yes here you get support for the Texas Instruments
+	  TWL92330/Menelaus Power Management chip. This include voltage
+	  regulators, Dual slot memory card tranceivers, real-time clock
+	  and other features that are often used in portable devices like
+	  cell phones and PDAs.
 
 endmenu

@@ -709,6 +709,7 @@ int omap_request_dma(int dev_id, const char *dev_name,
 	chan->dev_name = dev_name;
 	chan->callback = callback;
 	chan->data = data;
+	chan->flags = 0;
 
 #ifndef CONFIG_ARCH_OMAP1
 	if (cpu_class_is_omap2()) {
@@ -1888,10 +1889,10 @@ static int omap2_dma_handle_ch(int ch)
 		status = dma_read(CSR(ch));
 	}
 
+	dma_write(status, CSR(ch));
+
 	if (likely(dma_chan[ch].callback != NULL))
 		dma_chan[ch].callback(ch, status, dma_chan[ch].data);
-
-	dma_write(status, CSR(ch));
 
 	return 0;
 }
@@ -2415,6 +2416,19 @@ static int __init omap_init_dma(void)
 
 	if (cpu_class_is_omap2())
 		setup_irq(INT_24XX_SDMA_IRQ0, &omap24xx_dma_irq);
+
+	/* Enable smartidle idlemodes and autoidle */
+	if (cpu_is_omap34xx()) {
+		u32 v = dma_read(OCP_SYSCONFIG);
+		v &= ~(DMA_SYSCONFIG_MIDLEMODE_MASK |
+				DMA_SYSCONFIG_SIDLEMODE_MASK |
+				DMA_SYSCONFIG_AUTOIDLE);
+		v |= (DMA_SYSCONFIG_MIDLEMODE(DMA_IDLEMODE_SMARTIDLE) |
+			DMA_SYSCONFIG_SIDLEMODE(DMA_IDLEMODE_SMARTIDLE) |
+			DMA_SYSCONFIG_AUTOIDLE);
+		dma_write(v , OCP_SYSCONFIG);
+	}
+
 
 	/* FIXME: Update LCD DMA to work on 24xx */
 	if (cpu_class_is_omap1()) {

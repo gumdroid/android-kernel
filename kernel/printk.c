@@ -48,6 +48,10 @@ void asmlinkage __attribute__((weak)) early_printk(const char *fmt, ...)
 extern void printascii(char *);
 #endif
 
+#ifdef CONFIG_DEBUG_LL
+extern void printascii(char *);
+#endif
+
 /* printk's without a loglevel use this.. */
 #define DEFAULT_MESSAGE_LOGLEVEL 4 /* KERN_WARNING */
 
@@ -711,6 +715,9 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	printed_len += vscnprintf(printk_buf + printed_len,
 				  sizeof(printk_buf) - printed_len, fmt, args);
 
+#ifdef	CONFIG_DEBUG_LL
+	printascii(printk_buf);
+#endif
 
 #ifdef	CONFIG_DEBUG_LL
 	printascii(printk_buf);
