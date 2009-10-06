@@ -902,7 +902,7 @@ err:
 	omapfb_unlock(fbdev);
 	return r;
 }
-#ifdef CONFIG_PM
+#ifdef CONFIG_FB_OMAP2_TIMEOUT_PM
 /*
  * Default time-out value for Fbdev
  */
@@ -1037,7 +1037,7 @@ static DEVICE_ATTR(managers, S_IRUGO | S_IWUSR,
 		show_managers, store_managers);
 static DEVICE_ATTR(displays, S_IRUGO | S_IWUSR,
 		show_displays, store_displays);
-#ifdef CONFIG_PM
+#ifdef CONFIG_FB_OMAP2_TIMEOUT_PM
 static DEVICE_ATTR (sleep_timeout, S_IRUGO | S_IWUSR,
         dss_sleep_show_timeout, dss_sleep_store_timeout);
 #endif
@@ -1047,7 +1047,7 @@ static struct attribute *omapfb_attrs[] = {
 	&dev_attr_overlays.attr,
 	&dev_attr_managers.attr,
 	&dev_attr_displays.attr,
-#ifdef CONFIG_PM
+#ifdef CONFIG_FB_OMAP2_TIMEOUT_PM
 	&dev_attr_sleep_timeout.attr,
 #endif
 	NULL,
@@ -1065,7 +1065,7 @@ void omapfb_create_sysfs(struct omapfb2_device *fbdev)
 	if (r)
 		dev_err(fbdev->dev, "failed to create sysfs clk file\n");
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_FB_OMAP2_TIMEOUT_PM
 	/*
 	 * Create Work queue for the FBDEV time out handling.
 	 * This is required since PM and UART are linked up with

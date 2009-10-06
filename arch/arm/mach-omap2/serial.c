@@ -228,7 +228,7 @@ static inline void omap_uart_disable_clocks(struct omap_uart_state *uart)
 	clk_disable(uart->ick);
 	clk_disable(uart->fck);
 }
-#ifdef CONFIG_FB_OMAP2
+#ifdef CONFIG_FB_OMAP2_TIMEOUT_PM
 extern void omap2fb_resume_idle(void);
 #endif
 
@@ -243,7 +243,7 @@ static void omap_uart_block_sleep(struct omap_uart_state *uart)
 	 * Hook DSS resume functionlaity here, so that serial
 	 * interrupt will be wake-up event for DSS
 	 */
-#ifdef CONFIG_FB_OMAP2
+#ifdef CONFIG_FB_OMAP2_TIMEOUT_PM
 	omap2fb_resume_idle();
 #endif
 }

@@ -36,6 +36,13 @@ config FB_OMAP2_NUM_FBS
 	  Select the number of framebuffers created. OMAP2/3 has 3 overlays
 	  so normally this would be 3.
 
+config FB_OMAP2_TIMEOUT_PM
+	bool "Enable timeout based Power Management"
+	depends on FB_OMAP2 && PM
+	default n
+	help
+	  Enable timeout based Power Management
+
 menu "OMAP2/3 Display Device Drivers"
         depends on OMAP2_DSS
 
