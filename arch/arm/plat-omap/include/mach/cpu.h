@@ -425,6 +425,16 @@ IS_OMAP_TYPE(3530, 0x3530)
 #define omap_rev_ge30()		((((omap_rev() & 0x0F000) >> 12) > 2) ? 1 : 0)
 
 /*
+ * Support for 720MHz part
+ */
+extern bool omap3_720mhz;
+
+static inline unsigned int omap3_has_720mhz(void)
+{
+	return omap3_720mhz;
+}
+
+/*
  * omap_chip bits
  *
  * CHIP_IS_OMAP{2420,2430,3430} indicate that a particular structure is

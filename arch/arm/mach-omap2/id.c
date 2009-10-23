@@ -25,6 +25,7 @@
 static struct omap_chip_id omap_chip;
 static unsigned int omap_revision;
 
+bool omap3_720mhz;
 
 unsigned int omap_rev(void)
 {
@@ -194,6 +195,12 @@ static u32 __init omap34xx_get_features(char *feat_name)
 	default:
 		break;
 	}
+
+	/*
+	 * Does it support 720MHz?
+	 */
+	omap3_720mhz = ((OMAP3_SKUID_MASK & read_tap_reg(OMAP3_PRODID))
+				& OMAP3_SKUID_720MHZ) ? 1 : 0 ;
 
 	return features;
 }
