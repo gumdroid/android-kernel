@@ -20,6 +20,7 @@
 #include <linux/clk.h>
 #include <linux/input.h>
 #include <linux/leds.h>
+#include <linux/backlight.h>
 
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
@@ -47,6 +48,7 @@
 #include "mmc-twl4030.h"
 #include "pm.h"
 #include "omap3-opp.h"
+#include "board-omap3evm-dc.h"
 #include <linux/regulator/machine.h>
 #include <linux/smsc911x.h>
 
@@ -59,7 +61,38 @@ static int omap3evm_twl_gpio_setup(struct device *dev,
                unsigned gpio, unsigned ngpio);
 #endif
 
+static int omap3evm_board_version;
 
+int get_omap3evm_board_rev(void)
+{
+	return omap3evm_board_version;
+}
+EXPORT_SYMBOL(get_omap3evm_board_rev);
+static void omap3evm_board_rev(void)
+{
+	void __iomem *ioaddr;
+	unsigned int smsc_id;
+	/*
+	 * The run time detection of EVM revision is done by reading Ethernet
+	 * PHY ID -
+	 *	GEN_1	= 0x
+	 *	GEN_2	= 0x92200000
+	 */
+	ioaddr = ioremap_nocache(OMAP3EVM_ETHR_START + 0x50, 0x4);
+	smsc_id = readl(ioaddr) & 0xFFFF0000;
+	iounmap(ioaddr);
+
+	switch (smsc_id) {
+	/*SMSC9115 chipset*/
+	case 0x01150000:
+		omap3evm_board_version = OMAP3EVM_BOARD_GEN_1;
+		break;
+	/*SMSC 9220 chipset*/
+	case 0x92200000:
+	default:
+		omap3evm_board_version = OMAP3EVM_BOARD_GEN_2;
+	}
+}
 
 static struct resource omap3evm_smc911x_resources[] = {
 	[0] =	{
@@ -79,7 +112,7 @@ static struct smsc911x_platform_config smsc911x_config = {
         .irq_polarity   = SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
         .irq_type       = SMSC911X_IRQ_TYPE_OPEN_DRAIN,
         .flags          = SMSC911X_USE_32BIT,
-};	
+};
 
 
 
@@ -285,9 +318,6 @@ static struct platform_device omap3evm_vout_device = {
 #define ENABLE_VPLL2_DEDICATED	0x05
 #define ENABLE_VPLL2_DEV_GRP	0xE0
 
-#define TWL_PWMA_PWMAON         0x00
-#define TWL_PWMA_PWMAOFF        0x01
-
 static int lcd_enabled;
 static int dvi_enabled;
 
@@ -321,17 +351,6 @@ static void __init omap3_evm_display_init(void)
 		goto err_4;
 	}
 
-	gpio_direction_output(LCD_PANEL_LR, 0);
-	gpio_direction_output(LCD_PANEL_UD, 0);
-	gpio_direction_output(LCD_PANEL_INI, 0);
-	gpio_direction_output(LCD_PANEL_RESB, 0);
-	gpio_direction_output(LCD_PANEL_QVGA, 0);
-
-#if defined(CONFIG_TWL4030_CORE)
-	twl4030_i2c_write_u8(TWL4030_MODULE_LED, 0x11, TWL4030_LED_EN);
-	twl4030_i2c_write_u8(TWL4030_MODULE_PWMA, 0x01, TWL4030_LED_PWMON);
-	twl4030_i2c_write_u8(TWL4030_MODULE_PWMA, 0x02, TWL4030_LED_PWMOFF);
-#endif
 	gpio_direction_output(LCD_PANEL_RESB, 1);
 	gpio_direction_output(LCD_PANEL_INI, 1);
 	gpio_direction_output(LCD_PANEL_QVGA, 0);
@@ -362,9 +381,6 @@ static int omap3_evm_panel_enable_lcd(struct omap_display *display)
 				ENABLE_VPLL2_DEDICATED, TWL4030_PLL2_DEDICATED);
 		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 				ENABLE_VPLL2_DEV_GRP, TWL4030_VPLL2_DEV_GRP);
-		twl4030_i2c_write_u8(TWL4030_MODULE_LED, 0x10, TWL4030_LED_EN);
-		twl4030_i2c_write_u8(TWL4030_MODULE_PWMA, 70, TWL_PWMA_PWMAOFF);
-
 	}
 #endif
 	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 0);
@@ -380,8 +396,6 @@ static void omap3_evm_panel_disable_lcd(struct omap_display *display)
 				TWL4030_PLL2_DEDICATED);
 		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x0,
 				TWL4030_VPLL2_DEV_GRP);
-		twl4030_i2c_write_u8(TWL4030_MODULE_LED, 0x11, TWL4030_LED_EN);
-		twl4030_i2c_write_u8(TWL4030_MODULE_PWMA, 0, TWL_PWMA_PWMAOFF);
 	}
 #endif
 	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 1);
@@ -421,13 +435,19 @@ static void omap3_evm_panel_disable_tv(struct omap_display *display)
 static struct omap_display_data omap3_evm_display_data_tv = {
 	.type = OMAP_DISPLAY_TYPE_VENC,
 	.name = "tv",
+#if defined(CONFIG_OMAP2_VENC_OUT_TYPE_SVIDEO)
 	.u.venc.type = OMAP_DSS_VENC_TYPE_SVIDEO,
+#elif defined(CONFIG_OMAP2_VENC_OUT_TYPE_COMPOSITE)
+	.u.venc.type = OMAP_DSS_VENC_TYPE_COMPOSITE,
+#endif
 	.panel_enable = omap3_evm_panel_enable_tv,
 	.panel_disable = omap3_evm_panel_disable_tv,
 };
 
 static int omap3_evm_panel_enable_dvi(struct omap_display *display)
 {
+	unsigned char val;
+
 	if (lcd_enabled) {
 		return -EINVAL;
 	}
@@ -438,12 +458,16 @@ static int omap3_evm_panel_enable_dvi(struct omap_display *display)
 			ENABLE_VPLL2_DEDICATED, TWL4030_PLL2_DEDICATED);
 		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
 			ENABLE_VPLL2_DEV_GRP, TWL4030_VPLL2_DEV_GRP);
-		twl4030_i2c_write_u8(TWL4030_MODULE_LED, 0x10, TWL4030_LED_EN);
-		twl4030_i2c_write_u8(TWL4030_MODULE_PWMA, 70, TWL_PWMA_PWMAOFF);
 	}
-	twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0x80,
+	twl4030_i2c_read_u8(TWL4030_MODULE_GPIO, &val,
 			REG_GPIODATADIR1);
-	twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0x80,
+	val |= 0x80;
+	twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, val,
+			REG_GPIODATADIR1);
+	twl4030_i2c_read_u8(TWL4030_MODULE_GPIO, &val,
+			REG_GPIODATAOUT1);
+	val |= 0x80;
+	twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, val,
 			REG_GPIODATAOUT1);
 #endif
 	dvi_enabled = 1;
@@ -454,18 +478,24 @@ static int omap3_evm_panel_enable_dvi(struct omap_display *display)
 static void omap3_evm_panel_disable_dvi(struct omap_display *display)
 {
 #if defined(CONFIG_TWL4030_CORE)
+	unsigned char val;
+
 	if (omap_rev() > OMAP3430_REV_ES1_0) {
 		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x0,
 				TWL4030_PLL2_DEDICATED);
 		twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x0,
 				TWL4030_VPLL2_DEV_GRP);
-		twl4030_i2c_write_u8(TWL4030_MODULE_LED, 0x11, TWL4030_LED_EN);
-		twl4030_i2c_write_u8(TWL4030_MODULE_PWMA, 0, TWL_PWMA_PWMAOFF);
 	}
 
-	twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0x00,
+	twl4030_i2c_read_u8(TWL4030_MODULE_GPIO, &val,
 			REG_GPIODATADIR1);
-	twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0x00,
+	val &= ~0x80;
+	twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, val,
+			REG_GPIODATADIR1);
+	twl4030_i2c_read_u8(TWL4030_MODULE_GPIO, &val,
+			REG_GPIODATAOUT1);
+	val &= ~0x80;
+	twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, val,
 			REG_GPIODATAOUT1);
 #endif
 	dvi_enabled = 0;
@@ -504,6 +534,53 @@ static struct omap_lcd_config omap3_evm_lcd_config __initdata = {
 	.ctrl_name	= "internal",
 };
 #endif /* CONFIG_OMAP2_DSS */
+
+static void omap3evm_set_bl_intensity(int intensity)
+{
+	unsigned char c;
+
+	if (intensity > 100)
+		return;
+
+#if defined(CONFIG_TWL4030_CORE)
+	/*
+	 * Enable LEDA for backlight
+	 */
+	twl4030_i2c_write_u8(TWL4030_MODULE_LED, 0x11, TWL4030_LED_EN);
+
+	if (get_omap3evm_board_rev() >= OMAP3EVM_BOARD_GEN_2) {
+		c = ((125 * (100 - intensity)) / 100) + 1;
+		twl4030_i2c_write_u8(TWL4030_MODULE_PWMA, 0x7F,
+							TWL4030_LED_PWMOFF);
+		twl4030_i2c_write_u8(TWL4030_MODULE_PWMA, c,
+							TWL4030_LED_PWMON);
+	} else {
+		c = ((125 * (100 - intensity)) / 100) + 2;
+		twl4030_i2c_write_u8(TWL4030_MODULE_PWMA, 0x1,
+							TWL4030_LED_PWMON);
+		twl4030_i2c_write_u8(TWL4030_MODULE_PWMA, c,
+							TWL4030_LED_PWMOFF);
+	}
+#endif
+}
+
+static struct generic_bl_info omap3evm_bl_platform_data = {
+	.name			= "omap-backlight",
+	.max_intensity		= 100,
+	.default_intensity	= 70,
+	.limit_mask		= 0,
+	.set_bl_intensity	= omap3evm_set_bl_intensity,
+	.kick_battery		= NULL,
+};
+
+static struct platform_device omap3evm_bklight_device = {
+	.name		= "generic-bl",
+	.id		= -1,
+	.dev		= {
+		.parent		= &omap3_evm_dss_device.dev,
+		.platform_data	= &omap3evm_bl_platform_data,
+	},
+};
 
 static void ads7846_dev_init(void)
 {
@@ -575,6 +652,7 @@ static struct platform_device *omap3_evm_devices[] __initdata = {
 	&omap3_evm_lcd_device,
 #endif /* CONFIG_OMAP2_DSS */
 	&omap3evm_smc911x_device,
+	&omap3evm_bklight_device,
 
 };
 
@@ -640,6 +718,43 @@ static void omap_init_twl4030(void)
        }
 }
 
+#define TWL4030_VAUX2_1P8V 0x5
+#define ENABLE_VAUX2_DEV_GRP 0x20
+
+/* This is called from twl4030-core.c and is required by
+ * MUSB and EHCI on new OMAP3EVM.
+ */
+void usb_gpio_settings(void)
+{
+	unsigned char val;
+
+	if (get_omap3evm_board_rev() < OMAP3EVM_BOARD_GEN_2)
+		return;
+
+	/* enable VAUX2 for EHCI */
+	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+			TWL4030_VAUX2_1P8V, TWL4030_VAUX2_DEDICATED);
+	twl4030_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+			ENABLE_VAUX2_DEV_GRP, TWL4030_VAUX2_DEV_GRP);
+
+	/* Enable TWL GPIO Module */
+	twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, 0x04, REG_GPIO_CTRL);
+
+	/*
+	 * Configure GPIO-6 as output
+	 */
+	twl4030_i2c_read_u8(TWL4030_MODULE_GPIO, &val, REG_GPIODATADIR1);
+	val |= 0x4;
+	twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, val, REG_GPIODATADIR1);
+
+	/* Set GPIO6 = 1 */
+	twl4030_i2c_read_u8(TWL4030_MODULE_GPIO, &val, REG_GPIODATAOUT1);
+	val |= 0x40;
+	twl4030_i2c_write_u8(TWL4030_MODULE_GPIO, val, REG_GPIODATAOUT1);
+
+}
+EXPORT_SYMBOL(usb_gpio_settings);
+
 #endif
 
 #if defined(CONFIG_OMAP3EVM_PR785)
@@ -659,6 +774,11 @@ static void omap_init_pr785(void)
 
 static void __init omap3_evm_init(void)
 {
+	int dec_i2c_id, is_dec_onboard;
+
+	/* Get EVM board version and save it */
+	omap3evm_board_rev();
+
 	omap3_evm_i2c_init();
 
 	platform_add_devices(omap3_evm_devices, ARRAY_SIZE(omap3_evm_devices));
@@ -677,12 +797,54 @@ static void __init omap3_evm_init(void)
 #endif
 
 	usb_musb_init();
+
+	if (get_omap3evm_board_rev() >= OMAP3EVM_BOARD_GEN_2) {
+		/* enable EHCI VBUS using GPIO22 */
+		omap_cfg_reg(AF9_34XX_GPIO22);
+		gpio_request(22, "enable EHCI VBUS");
+		gpio_direction_output(22, 0);
+		gpio_set_value(22, 1);
+
+		/* enable 1.8V using GPIO61 */
+		omap_cfg_reg(U3_34XX_GPIO61);
+		gpio_request(61, "enable 1.8V for EHCI");
+		gpio_direction_output(61, 0);
+		gpio_set_value(61, 0);
+
+		/* setup EHCI phy reset config */
+		omap_cfg_reg(AH14_34XX_GPIO21);
+		omap3_ehci_phy_reset_gpio = 21;
+
+		/* enable MUSB VBUS */
+	#if 0
+		/* Don't enable GPIO based VBUS when MUSB
+		 * PHY is programmed to use EXT VBUS
+		 */
+		omap_cfg_reg(Y21_34XX_GPIO156);
+		gpio_request(156, "enable MUSB VBUS");
+		gpio_direction_output(156, 0);
+		gpio_set_value(156, 1);
+	#endif
+	} else {
+		/* setup EHCI phy reset on MDC */
+		omap_cfg_reg(AF4_34XX_GPIO135);
+		omap3_ehci_phy_reset_gpio = 135;
+	}
 	usb_ehci_init();
 	omap3evm_flash_init();
 	ads7846_dev_init();
 #ifdef CONFIG_OMAP2_DSS
 	omap3_evm_display_init();
 #endif /* CONFIG_OMAP2_DSS */
+
+	if (get_omap3evm_board_rev() >= OMAP3EVM_BOARD_GEN_2) {
+		dec_i2c_id = 0x5C;
+		is_dec_onboard = 1;
+	} else {
+		dec_i2c_id = 0x5D;
+		is_dec_onboard = 0;
+	}
+	omap3evmdc_init(is_dec_onboard, 3, dec_i2c_id);
 }
 
 static void __init omap3_evm_map_io(void)

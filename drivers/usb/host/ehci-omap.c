@@ -31,7 +31,6 @@
 
 #include "ehci-omap.h"
 
-
 /* EHCI connected to External PHY */
 
 /* External USB connectivity board: 750-2083-001
@@ -40,8 +39,8 @@
  * Mistral/Multimedia daughter card connected to OMAP3EVM
  * The board has only Port2 connected to SMSC USB83320 in 12-pin ULPI mode
  */
-#ifdef CONFIG_OMAP3EVM_MISTRAL_DC
-#define EXT_PHY_RESET_GPIO_PORT2        (135)
+#ifdef CONFIG_MACH_OMAP3EVM
+u8	EXT_PHY_RESET_GPIO_PORT2;
 #elif CONFIG_MACH_OMAP3_BEAGLE
 #define EXT_PHY_RESET_GPIO_PORT2        (147)
 #elif CONFIG_OMAP3430SDP_750_2083_001
@@ -52,8 +51,6 @@
 #if defined(CONFIG_OMAP_EHCI_PHY_MODE_PORT1)	|| \
 	defined(CONFIG_OMAP_EHCI_PHY_MODE_PORT2)
 
-#if defined(CONFIG_OMAP3430SDP_750_2083_001) || \
-    defined(CONFIG_MACH_OMAP3_BEAGLE)
 /* ISSUE1:
  *      ISP1504 for input clocking mode needs special reset handling
  *	Hold the PHY in reset by asserting RESET_N signal
@@ -69,15 +66,14 @@
 #define PHY_STP_PULLUP_ENABLE		(0x10)
 #define PHY_STP_PULLUP_DISABLE		(0x90)
 
+#ifdef CONFIG_OMAP3430SDP_750_2083_001
 /* ISSUE2:
  * USBHOST supports External charge pump PHYs only
  * Use the VBUS from Port1 to power VBUS of Port2 externally
  * So use Port2 as the working ULPI port
  * This is not required for Mistral/Multimedia daughter card on OMAP3EVM.
  */
-#ifndef CONFIG_MACH_OMAP3_BEAGLE
 #define VBUS_INTERNAL_CHARGEPUMP_HACK
-#endif
 #endif /* CONFIG_OMAP3430SDP_750_2083_001 */
 
 #endif
@@ -248,12 +244,17 @@ static int omap_start_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 		return PTR_ERR(ehci_clocks->usbhost1_48m_fck_clk);
 	clk_enable(ehci_clocks->usbhost1_48m_fck_clk);
 
+#ifdef CONFIG_MACH_OMAP3EVM
+	/* get phy reset gpio number */
+	EXT_PHY_RESET_GPIO_PORT2 = omap3_ehci_phy_reset_gpio;
+#endif
 
 #ifdef EXTERNAL_PHY_RESET
 	/* Refer: ISSUE1 */
-#ifndef CONFIG_MACH_OMAP3_BEAGLE
+#ifdef CONFIG_OMAP3430SDP_750_2083_001
 	gpio_request(EXT_PHY_RESET_GPIO_PORT1, "USB1 PHY reset");
 	gpio_direction_output(EXT_PHY_RESET_GPIO_PORT1, 0);
+	gpio_set_value(EXT_PHY_RESET_GPIO_PORT1, 0);
 #endif
 	gpio_request(EXT_PHY_RESET_GPIO_PORT2, "USB2 PHY reset");
 	gpio_direction_output(EXT_PHY_RESET_GPIO_PORT2, 0);
@@ -403,7 +404,7 @@ static int omap_start_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 	 * Hold the PHY in RESET for enough time till PHY is settled and ready
 	 */
 	udelay(EXT_PHY_RESET_DELAY);
-#ifndef CONFIG_MACH_OMAP3_BEAGLE
+#ifdef CONFIG_OMAP3430SDP_750_2083_001
 	gpio_set_value(EXT_PHY_RESET_GPIO_PORT1, 1);
 #endif
 	gpio_set_value(EXT_PHY_RESET_GPIO_PORT2, 1);
@@ -491,7 +492,7 @@ static void omap_stop_ehc(struct platform_device *dev, struct usb_hcd *hcd)
 
 
 #ifdef EXTERNAL_PHY_RESET
-#ifndef CONFIG_MACH_OMAP3_BEAGLE
+#ifdef CONFIG_OMAP3430SDP_750_2083_001
 	gpio_free(EXT_PHY_RESET_GPIO_PORT1);
 #endif
 	gpio_free(EXT_PHY_RESET_GPIO_PORT2);
