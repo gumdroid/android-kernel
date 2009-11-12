@@ -707,6 +707,7 @@ static void trace_init_cmdlines(void)
 
 static int trace_stop_count;
 static DEFINE_SPINLOCK(tracing_start_lock);
+void tracing_off_permanent(void);
 
 /**
  * ftrace_off_permanent - disable all ftrace code permanently
