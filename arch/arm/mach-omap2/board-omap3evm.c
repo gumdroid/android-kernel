@@ -350,15 +350,23 @@ static void __init omap3_evm_display_init(void)
 		printk(KERN_ERR "failed to get LCD_PANEL_QVGA\n");
 		goto err_4;
 	}
+	r = gpio_request(LCD_PANEL_ENABLE_GPIO, "lcd_panel_envdd");
+	if (r) {
+		printk(KERN_ERR "failed to get lcd_panel_envdd\n");
+		goto err_5;
+	}
 
 	gpio_direction_output(LCD_PANEL_RESB, 1);
 	gpio_direction_output(LCD_PANEL_INI, 1);
 	gpio_direction_output(LCD_PANEL_QVGA, 0);
 	gpio_direction_output(LCD_PANEL_LR, 1);
 	gpio_direction_output(LCD_PANEL_UD, 1);
+	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 0);
 
 	return;
 
+err_5:
+	gpio_free(LCD_PANEL_ENABLE_GPIO);
 err_4:
 	gpio_free(LCD_PANEL_RESB);
 err_3:
@@ -383,7 +391,7 @@ static int omap3_evm_panel_enable_lcd(struct omap_display *display)
 				ENABLE_VPLL2_DEV_GRP, TWL4030_VPLL2_DEV_GRP);
 	}
 #endif
-	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 0);
+	gpio_set_value(LCD_PANEL_ENABLE_GPIO, 0);
 	lcd_enabled = 1;
 	return 0;
 }
@@ -398,7 +406,7 @@ static void omap3_evm_panel_disable_lcd(struct omap_display *display)
 				TWL4030_VPLL2_DEV_GRP);
 	}
 #endif
-	gpio_direction_output(LCD_PANEL_ENABLE_GPIO, 1);
+	gpio_set_value(LCD_PANEL_ENABLE_GPIO, 1);
 	lcd_enabled = 0;
 }
 
@@ -584,8 +592,12 @@ static struct platform_device omap3evm_bklight_device = {
 
 static void ads7846_dev_init(void)
 {
-	if (gpio_request(OMAP3_EVM_TS_GPIO, "ADS7846 pendown") < 0)
+	if (gpio_request(OMAP3_EVM_TS_GPIO, "ADS7846 pendown") < 0) {
 		printk(KERN_ERR "can't get ads7846 pen down GPIO\n");
+		return;
+	}
+
+	omap_cfg_reg(AC3_34XX_GPIO175);
 
 	gpio_direction_input(OMAP3_EVM_TS_GPIO);
 
