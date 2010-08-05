@@ -1140,6 +1140,11 @@ config TI816X_PCIE_BOOTDRV
         help
 	   This option builds driver required for booting TI816X PCIe Endpoint
 	   connected on PCIe fabric. Use 'M' to build as module.
+config TI816X_HDMI
+        tristate "TI816X HDMI Driver"
+        help
+	   This option builds driver required for booting TI816X HDMI
+	   Use 'M' to build as module.
 
 source "drivers/s390/char/Kconfig"
 
