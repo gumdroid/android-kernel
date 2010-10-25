@@ -195,6 +195,15 @@ config USB_TI_CPPI_DMA_HW
 	help
 	  Enable DMA transfers when TI CPPI DMA is available.
 
+config USB_TI_CPPI41_DMA_HW
+	select USB_TI_CPPI41_DMA
+	tristate
+	depends on USB_MUSB_HDRC && !MUSB_PIO_ONLY
+	default ARCH_DAVINCI_DA8XX
+	select CPPI41
+	help
+	  Enable DMA transfers when TI CPPI 4.1 DMA is available.
+
 config USB_TUSB_OMAP_DMA_HW
 	select USB_TUSB_OMAP_DMA
 	tristate
@@ -225,6 +234,10 @@ config MUSB_USE_SYSTEM_DMA_WORKAROUND
 	  unaligned buffers.
 
 config USB_TI_CPPI_DMA
+	bool
+	default n
+
+config USB_TI_CPPI41_DMA
 	bool
 	default n
 
