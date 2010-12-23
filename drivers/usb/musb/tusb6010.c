@@ -1165,7 +1165,8 @@ static int tusb_musb_exit(struct musb *musb)
 
 static const struct musb_platform_ops tusb_ops = {
 	.fifo_mode	= 4,
-	.flags		= MUSB_GLUE_TUSB_STYLE | MUSB_GLUE_EP_ADDR_INDEXED_MAPPING,
+	.flags		= MUSB_GLUE_TUSB_STYLE |
+			MUSB_GLUE_EP_ADDR_INDEXED_MAPPING | MUSB_GLUE_DMA_TUSB,
 	.init		= tusb_musb_init,
 	.exit		= tusb_musb_exit,
 
@@ -1181,6 +1182,9 @@ static const struct musb_platform_ops tusb_ops = {
 	.set_vbus	= tusb_musb_set_vbus,
 	.read_fifo	= tusb_musb_read_fifo,
 	.write_fifo	= tusb_musb_write_fifo,
+
+	.dma_controller_create = tusb_dma_controller_create,
+	.dma_controller_destroy = tusb_dma_controller_destroy,
 };
 
 static u64 tusb_dmamask = DMA_BIT_MASK(32);
