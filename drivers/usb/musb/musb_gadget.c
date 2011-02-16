@@ -112,7 +112,7 @@ __acquires(ep->musb->lock)
 
 	req = to_musb_request(request);
 
-	list_del(&request->list);
+	list_del(&req->list);
 	if (req->request.status == -EINPROGRESS)
 		req->request.status = status;
 	musb = req->musb;
@@ -191,9 +191,8 @@ static void nuke(struct musb_ep *ep, const int status)
 		ep->dma = NULL;
 	}
 
-	while (!list_empty(&(ep->req_list))) {
-		req = container_of(ep->req_list.next, struct musb_request,
-				request.list);
+	while (!list_empty(&ep->req_list)) {
+		req = list_first_entry(&ep->req_list, struct musb_request, list);
 		musb_g_giveback(ep, &req->request, status);
 	}
 }
@@ -428,6 +427,7 @@ static void txstate(struct musb *musb, struct musb_request *req)
 void musb_g_tx(struct musb *musb, u8 epnum)
 {
 	u16			csr;
+	struct musb_request	*req;
 	struct usb_request	*request;
 	u8 __iomem		*mbase = musb->mregs;
 	struct musb_ep		*musb_ep = &musb->endpoints[epnum].ep_in;
@@ -435,7 +435,8 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 	struct dma_channel	*dma;
 
 	musb_ep_select(musb, mbase, epnum);
-	request = next_request(musb_ep);
+	req = next_request(musb_ep);
+	request = &req->request;
 
 	csr = musb_readw(epio, MUSB_TXCSR);
 	DBG(4, "<== %s, txcsr %04x\n", musb_ep->end_point.name, csr);
@@ -515,15 +516,15 @@ void musb_g_tx(struct musb *musb, u8 epnum)
 
 		if (request->actual == request->length) {
 			musb_g_giveback(musb_ep, request, 0);
-			request = musb_ep->desc ? next_request(musb_ep) : NULL;
-			if (!request) {
+			req = musb_ep->desc ? next_request(musb_ep) : NULL;
+			if (!req) {
 				DBG(4, "%s idle now\n",
 					musb_ep->end_point.name);
 				return;
 			}
 		}
 
-		txstate(musb, to_musb_request(request));
+		txstate(musb, req);
 	}
 }
 
@@ -744,6 +745,7 @@ static void rxstate(struct musb *musb, struct musb_request *req)
 void musb_g_rx(struct musb *musb, u8 epnum)
 {
 	u16			csr;
+	struct musb_request	*req;
 	struct usb_request	*request;
 	void __iomem		*mbase = musb->mregs;
 	struct musb_ep		*musb_ep;
@@ -758,9 +760,11 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 
 	musb_ep_select(musb, mbase, epnum);
 
-	request = next_request(musb_ep);
-	if (!request)
+	req = next_request(musb_ep);
+	if (!req)
 		return;
+
+	request = &req->request;
 
 	csr = musb_readw(epio, MUSB_RXCSR);
 	dma = is_dma_capable() ? musb_ep->dma : NULL;
@@ -837,12 +841,12 @@ void musb_g_rx(struct musb *musb, u8 epnum)
 		}
 		musb_g_giveback(musb_ep, request, 0);
 
-		request = next_request(musb_ep);
-		if (!request)
+		req = next_request(musb_ep);
+		if (!req)
 			return;
 	}
 	/* Analyze request */
-	rxstate(musb, to_musb_request(request));
+	rxstate(musb, req);
 }
 
 /* ------------------------------------------------------------ */
@@ -1083,7 +1087,6 @@ struct usb_request *musb_alloc_request(struct usb_ep *ep, gfp_t gfp_flags)
 		return NULL;
 	}
 
-	INIT_LIST_HEAD(&request->request.list);
 	request->request.dma = DMA_ADDR_INVALID;
 	request->epnum = musb_ep->current_epnum;
 	request->ep = musb_ep;
@@ -1189,10 +1192,10 @@ static int musb_gadget_queue(struct usb_ep *ep, struct usb_request *req,
 	}
 
 	/* add request to the list */
-	list_add_tail(&(request->request.list), &(musb_ep->req_list));
+	list_add_tail(&request->list, &musb_ep->req_list);
 
 	/* it this is the head of the queue, start i/o ... */
-	if (!musb_ep->busy && &request->request.list == musb_ep->req_list.next)
+	if (!musb_ep->busy && &request->list == musb_ep->req_list.next)
 		musb_ep_restart(musb, request);
 
 cleanup:
@@ -1281,7 +1284,7 @@ static int musb_gadget_set_halt(struct usb_ep *ep, int value)
 
 	musb_ep_select(musb, mbase, epnum);
 
-	request = to_musb_request(next_request(musb_ep));
+	request = next_request(musb_ep);
 	if (value) {
 		if (request) {
 			DBG(3, "request in progress, cannot halt %s\n",
