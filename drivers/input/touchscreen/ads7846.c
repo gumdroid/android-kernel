@@ -110,6 +110,7 @@ struct ads7846 {
 	bool			swap_xy;
 
 	struct ads7846_packet	*packet;
+	struct ads7846_platform_data    *pdata;
 
 	struct spi_transfer	xfer[18];
 	struct spi_message	msg[5];
@@ -142,6 +143,16 @@ struct ads7846 {
 	void			(*wait_for_sync)(void);
 };
 
+#ifdef CONFIG_MACH_OMAP3EVM
+
+#define OMAP3EVM_XMIN		0x136
+#define OMAP3EVM_XMAX		0xe84
+#define OMAP3EVM_YMIN		0x0d9
+#define OMAP3EVM_YMAX		0xec6
+#define OMAP3EVM_XRES		480
+#define OMAP3EVM_YRES	        640
+
+#endif
 /* leave chip selected when we're done, for quicker re-select? */
 #if	0
 #define	CS_CHANGE(xfer)	((xfer).cs_change = 1)
@@ -756,6 +767,7 @@ static void ads7846_read_state(struct ads7846 *ts)
 static void ads7846_report_state(struct ads7846 *ts)
 {
 	struct ads7846_packet *packet = ts->packet;
+	struct ads7846_platform_data *pdata = ts->pdata;
 	unsigned int Rt;
 	u16 x, y, z1, z2;
 
@@ -842,6 +854,14 @@ static void ads7846_report_state(struct ads7846 *ts)
 			dev_vdbg(&ts->spi->dev, "DOWN\n");
 		}
 
+
+
+#ifdef CONFIG_MACH_OMAP3EVM
+		x = pdata->x_max -
+			((pdata->x_max * (x - OMAP3EVM_XMIN)) / (OMAP3EVM_XMAX- OMAP3EVM_XMIN));
+		y = pdata->y_max -
+			((pdata->y_max * (y - OMAP3EVM_YMIN)) / (OMAP3EVM_YMAX - OMAP3EVM_YMIN));
+#endif
 		input_report_abs(input, ABS_X, x);
 		input_report_abs(input, ABS_Y, y);
 		input_report_abs(input, ABS_PRESSURE, ts->pressure_max - Rt);
@@ -1217,6 +1237,7 @@ static int __devinit ads7846_probe(struct spi_device *spi)
 	dev_set_drvdata(&spi->dev, ts);
 
 	ts->packet = packet;
+	ts->pdata = pdata;
 	ts->spi = spi;
 	ts->input = input_dev;
 	ts->vref_mv = pdata->vref_mv;
