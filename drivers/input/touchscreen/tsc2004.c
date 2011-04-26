@@ -46,6 +46,16 @@
 #define PND0_TRUE	1
 #define PND0_FALSE	0
 
+#ifdef CONFIG_MACH_OMAP3517EVM
+
+#define OMAP3517EVM_XMIN	9
+#define OMAP3517EVM_XMAX	245
+#define OMAP3517EVM_YMIN	14
+#define OMAP3517EVM_YMAX	235
+#define OMAP3517EVM_XRES	480
+#define OMAP3517EVM_YRES	272
+
+#endif
 /* Converter function mapping */
 enum convertor_function {
 	MEAS_X_Y_Z1_Z2,	/* Measure X,Y,z1 and Z2:	0x0 */
@@ -337,6 +347,13 @@ static void tsc2004_work(struct work_struct *work)
 			ts->pendown = true;
 		}
 
+#ifdef CONFIG_MACH_OMAP3517EVM
+		tc.x =(OMAP3517EVM_XRES * (tc.x - OMAP3517EVM_XMIN)) /
+		      (OMAP3517EVM_XMAX - OMAP3517EVM_XMIN);
+		tc.y = OMAP3517EVM_YRES -
+			((OMAP3517EVM_YRES * (tc.y - OMAP3517EVM_YMIN)) /
+			(OMAP3517EVM_YMAX - OMAP3517EVM_YMIN));
+#endif
 		input_report_abs(input, ABS_X, tc.x);
 		input_report_abs(input, ABS_Y, tc.y);
 		input_report_abs(input, ABS_PRESSURE, rt);
@@ -437,8 +454,13 @@ static int __devinit tsc2004_probe(struct i2c_client *client,
 	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
 	input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
 
+#ifdef CONFIG_MACH_OMAP3517EVM
+	input_set_abs_params(input_dev, ABS_X, 0, OMAP3517EVM_XRES, 0, 0);
+	input_set_abs_params(input_dev, ABS_Y, 0, OMAP3517EVM_YRES, 0, 0);
+#else
 	input_set_abs_params(input_dev, ABS_X, 0, MAX_12BIT, 0, 0);
 	input_set_abs_params(input_dev, ABS_Y, 0, MAX_12BIT, 0, 0);
+#endif
 	input_set_abs_params(input_dev, ABS_PRESSURE, 0, MAX_12BIT, 0, 0);
 
 	if (pdata->init_platform_hw)

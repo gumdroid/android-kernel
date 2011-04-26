@@ -49,6 +49,7 @@
 
 #include <media/davinci/vpfe_capture.h>
 #include <media/tvp514x.h>
+#include <linux/usb/android_composite.h>
 
 #include "mux.h"
 #include "control.h"
@@ -58,6 +59,58 @@
 #define AM35XX_EVM_MDIO_FREQUENCY	(1000000)
 
 #define NAND_BLOCK_SIZE        SZ_128K
+
+#ifdef CONFIG_USB_ANDROID
+
+#define GOOGLE_VENDOR_ID                0x18d1
+#define GOOGLE_PRODUCT_ID               0x9018
+#define GOOGLE_ADB_PRODUCT_ID           0x9015
+
+static char *usb_functions_adb[] = {
+        "adb",
+};
+
+static char *usb_functions_all[] = {
+        "adb",
+};
+
+static struct android_usb_product usb_products[] = {
+        {
+                .product_id     = GOOGLE_PRODUCT_ID,
+                .num_functions  = ARRAY_SIZE(usb_functions_adb),
+                .functions      = usb_functions_adb,
+        },
+};
+
+
+static struct android_usb_platform_data android_usb_pdata = {
+        .vendor_id      = GOOGLE_VENDOR_ID,
+        .product_id     = GOOGLE_PRODUCT_ID,
+        .functions      = usb_functions_all,
+        .products       = usb_products,
+        .version        = 0x0100,
+        .product_name   = "rowboat gadget",
+        .manufacturer_name      = "rowboat",
+        .serial_number  = "20100720",
+        .num_functions  = ARRAY_SIZE(usb_functions_all),
+};
+
+static struct platform_device androidusb_device = {
+        .name   = "android_usb",
+        .id     = -1,
+        .dev    = {
+                .platform_data = &android_usb_pdata,
+        },
+};
+
+static void omap3evm_android_gadget_init(void)
+{
+        platform_device_register(&androidusb_device);
+}
+
+#endif
+
+
 
 static struct mtd_partition am3517evm_nand_partitions[] = {
 /* All the partition sizes are listed in terms of NAND block size */
@@ -952,6 +1005,9 @@ static void __init am3517_evm_init(void)
 
 	/* MMC init function */
 	omap2_hsmmc_init(mmc);
+#ifdef CONFIG_USB_ANDROID
+        omap3evm_android_gadget_init();
+#endif
 
 	/* NOR Flash on Application board */
 	am3517_nor_init();
