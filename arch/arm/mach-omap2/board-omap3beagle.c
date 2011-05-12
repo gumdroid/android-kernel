@@ -29,6 +29,8 @@
 #include <linux/mtd/nand.h>
 #include <linux/mmc/host.h>
 
+#include <linux/usb/android_composite.h>
+
 #include <linux/regulator/machine.h>
 #include <linux/i2c/twl.h>
 
@@ -51,6 +53,53 @@
 
 #define NAND_BLOCK_SIZE		SZ_128K
 
+#ifdef CONFIG_USB_ANDROID
+
+#define GOOGLE_VENDOR_ID		0x18d1
+#define GOOGLE_PRODUCT_ID		0x9018
+#define GOOGLE_ADB_PRODUCT_ID		0x9015
+
+static char *usb_functions_adb[] = {
+	"adb",
+};
+
+static char *usb_functions_all[] = {
+	"adb",
+};
+
+static struct android_usb_product usb_products[] = {
+	{
+		.product_id	= GOOGLE_PRODUCT_ID,
+		.num_functions	= ARRAY_SIZE(usb_functions_adb),
+		.functions	= usb_functions_adb,
+	},
+};
+
+static struct android_usb_platform_data android_usb_pdata = {
+	.vendor_id	= GOOGLE_VENDOR_ID,
+	.product_id	= GOOGLE_PRODUCT_ID,
+	.functions	= usb_functions_all,
+	.products	= usb_products,
+	.version	= 0x0100,
+	.product_name	= "rowboat gadget",
+	.manufacturer_name	= "rowboat",
+	.serial_number	= "20100720",
+	.num_functions	= ARRAY_SIZE(usb_functions_all),
+};
+
+static struct platform_device androidusb_device = {
+	.name	= "android_usb",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &android_usb_pdata,
+	},
+};
+
+static void omap3evm_android_gadget_init(void)
+{
+	platform_device_register(&androidusb_device);
+}
+#endif
 /*
  * OMAP3 Beagle revision
  * Run time detection of Beagle revision is done by reading GPIO.
@@ -668,6 +717,9 @@ static void __init omap3_beagle_init(void)
 	omap_mux_init_signal("sdrc_cke1", OMAP_PIN_OUTPUT);
 
 	beagle_display_init();
+#ifdef CONFIG_USB_ANDROID
+	omap3evm_android_gadget_init();
+#endif
 }
 
 MACHINE_START(OMAP3_BEAGLE, "OMAP3 Beagle Board")
