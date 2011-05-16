@@ -230,7 +230,8 @@ static int __devinit tca6416_keypad_probe(struct i2c_client *client,
 	INIT_DELAYED_WORK(&chip->dwork, tca6416_keys_work_func);
 
 	input->phys = "tca6416-keys/input0";
-	input->name = client->name;
+	//input->name = client->name;
+	input->name = "TCA6416 Keypad";
 	input->dev.parent = &client->dev;
 
 	input->open = tca6416_keys_open;
@@ -286,8 +287,10 @@ static int __devinit tca6416_keypad_probe(struct i2c_client *client,
 	if (error) {
 		dev_dbg(&client->dev,
 			"Unable to register input device, error: %d\n", error);
+		printk("******error in registering tca keypad!!!!");
 		goto fail2;
 	}
+	printk("successfully registered tca keypad\n");
 
 	i2c_set_clientdata(client, chip);
 
