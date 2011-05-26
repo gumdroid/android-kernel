@@ -333,6 +333,12 @@ static int omap3_evm_enable_lcd(struct omap_dss_device *dssdev)
 	}
 	gpio_set_value(OMAP3EVM_LCD_PANEL_ENVDD, 0);
 
+	if (cpu_is_omap3630()) {
+		omap_mux_set_gpio(OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT, 2);
+		omap_mux_set_gpio(OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT, 3);
+		gpio_direction_output(OMAP3EVM_LCD_PANEL_LR, 1);
+		gpio_direction_output(OMAP3EVM_LCD_PANEL_UD, 1);
+	}
 	if (get_omap3_evm_rev() >= OMAP3EVM_BOARD_GEN_2)
 		gpio_set_value_cansleep(OMAP3EVM_LCD_PANEL_BKLIGHT_GPIO, 0);
 	else
