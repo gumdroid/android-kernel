@@ -42,5 +42,4 @@ config WL1271_SDIO
 
 config WL12XX_PLATFORM_DATA
 	bool
-	depends on WL1271_SDIO != n
 	default y
