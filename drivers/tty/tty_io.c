@@ -108,6 +108,13 @@
 #include <linux/kmod.h>
 #include <linux/nsproxy.h>
 
+#ifdef CONFIG_BT_WL1271
+/* WL1271: To control T2 gpios on OMAP3 EVM */
+#include "linux/i2c/twl.h"
+/* WL1271: To set BT_EN of TI's WL1271 Bluetooth chip */
+#define TIOSETWL1271POWER 0x6000
+#endif
+
 #undef TTY_DEBUG_HANGUP
 
 #define TTY_PARANOIA_CHECK 1
@@ -158,6 +165,93 @@ static int tty_fasync(int fd, struct file *filp, int on);
 static void release_tty(struct tty_struct *tty, int idx);
 static void __proc_set_tty(struct task_struct *tsk, struct tty_struct *tty);
 static void proc_set_tty(struct task_struct *tsk, struct tty_struct *tty);
+
+#ifdef CONFIG_BT_WL1271
+/* WL1271: Power on sequence */
+static int bt_init_power(void)
+{
+	int ret = 0;
+	u8 reg_value = 0;
+
+	/* Mistral's Daughter card BT_EN is connected to T2-GPIO.13 */
+	/* Enable GPIO */
+	ret = twl_i2c_read_u8(TWL4030_MODULE_GPIO,
+				&reg_value, REG_GPIO_CTRL);
+	if (ret != 0)
+		goto err;
+
+	/* T2-GPIO.13 -> output */
+	ret = twl_i2c_read_u8(TWL4030_MODULE_GPIO,
+				&reg_value, REG_GPIODATADIR2);
+	if (ret != 0)
+		goto err;
+
+	reg_value |= 0x20;
+	ret = twl_i2c_write_u8(TWL4030_MODULE_GPIO,
+				reg_value, REG_GPIODATADIR2);
+	if (ret != 0)
+		goto err;
+	/* T2-GPIO.13 -> LOW */
+	ret = twl_i2c_read_u8(TWL4030_MODULE_GPIO,
+				&reg_value, REG_GPIODATAOUT2);
+	if (ret != 0)
+		goto err;
+
+	reg_value &= ~(0x20);
+	ret = twl_i2c_write_u8(TWL4030_MODULE_GPIO,
+				reg_value, REG_GPIODATAOUT2);
+	if (ret != 0)
+		goto err;
+
+	mdelay(50);
+	/* T2-GPIO.13 -> HIGH */
+	reg_value |= (0x20);
+	ret = twl_i2c_write_u8(TWL4030_MODULE_GPIO,
+				reg_value, REG_GPIODATAOUT2);
+	if (ret != 0)
+		goto err;
+	mdelay(50);
+	/* T2-GPIO.13 -> LOW */
+	reg_value &= ~(0x20);
+	ret = twl_i2c_write_u8(TWL4030_MODULE_GPIO,
+				reg_value, REG_GPIODATAOUT2);
+	if (ret != 0)
+		goto err;
+	printk(KERN_INFO "WL1271: BT_EN GPIO initialized\n");
+err:
+	return ret;
+} /* End of init_bt_power() */
+
+/* WL1271: Set BT_EN */
+static int tty_setbt_power(int __user *p)
+{
+	int power;
+	int err = 0;
+	u8 reg_value = 0;
+
+	if (get_user(power, p))
+		return -EFAULT;
+
+	printk(KERN_INFO "Set BT_EN of WL1271\n");
+	/* Power settings argument should either be 1 or 0 */
+	power = power ? 1 : 0;
+
+	if (power)
+		reg_value |= (0x20);
+	else
+		reg_value &= ~(0x20);
+
+	err = twl_i2c_write_u8(TWL4030_MODULE_GPIO,
+				reg_value, REG_GPIODATAOUT2);
+	if (err != 0) {
+		printk(KERN_DEBUG "WL1271: Set BT_EN failed %d %d\n",
+								err, power);
+		return err;
+	}
+	printk(KERN_INFO "WL1271: Powering %s\n", power ? "on" : "off");
+	return 0;
+} /* End of set_bt_power() */
+#endif
 
 /**
  *	alloc_tty_struct	-	allocate a tty object
@@ -2655,6 +2749,11 @@ long tty_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	case TIOCMBIC:
 	case TIOCMBIS:
 		return tty_tiocmset(tty, file, cmd, p);
+#ifdef CONFIG_BT_WL1271
+	/* Control BT_EN pin of Bluetooth-WL1271 */
+	case TIOSETWL1271POWER:
+		return tty_setbt_power(p);
+#endif
 	case TIOCGICOUNT:
 		retval = tty_tiocgicount(tty, p);
 		/* For the moment allow fall through to the old method */
@@ -3266,6 +3365,11 @@ int __init tty_init(void)
 
 #ifdef CONFIG_VT
 	vty_init(&console_fops);
+#endif
+
+#ifdef CONFIG_BT_WL1271
+	/* Initialize Bluetooth- WL1271chip connected to UART */
+	bt_init_power();
 #endif
 	return 0;
 }
