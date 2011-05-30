@@ -400,4 +400,16 @@ struct gps_event_hdr {
 	u16 plen;
 } __attribute__ ((packed));
 
+/* platform data */
+struct ti_st_plat_data {
+	long nshutdown_gpio;
+	unsigned char dev_name[UART_DEV_NAME_LEN]; /* uart name */
+	unsigned char flow_cntrl; /* flow control flag */
+	unsigned long baud_rate;
+	int (*suspend)(struct platform_device *, pm_message_t);
+	int (*resume)(struct platform_device *);
+	int (*chip_enable) (struct kim_data_s *kim_data);
+	int (*chip_disable) (struct kim_data_s *kim_data);
+};
+
 #endif /* TI_WILINK_ST_H */
