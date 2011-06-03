@@ -560,7 +560,7 @@ static int tsc2004_init_irq(void)
 		return -ENXIO;
 	}
 
-	gpio_set_debounce(GPIO_TSC2004_IRQ, 0xa);
+	gpio_set_debounce(GPIO_TSC2004_IRQ, 0x13565);
 	return ret;
 }
 
