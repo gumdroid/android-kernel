@@ -2483,31 +2483,6 @@ EXPORT_SYMBOL_GPL(musb_restore_context);
 
 static int musb_suspend(struct device *dev)
 {
-	struct platform_device *pdev = to_platform_device(dev);
-	unsigned long	flags;
-	struct musb	*musb = dev_to_musb(&pdev->dev);
-	u8 reg;
-
-	spin_lock_irqsave(&musb->lock, flags);
-
-	if (is_peripheral_active(musb)) {
-		/* System is entering into suspend where gadget would not be
-		 * able to respond to host and thus it will be in an unknown
-		 * state for host.Re-enumemation of gadget is required after
-		 * resume to make the gadget functional thus doing a force
-		 * disconnect.
-		 */
-		reg = musb_readb(musb->mregs, MUSB_POWER);
-		reg &= ~MUSB_POWER_SOFTCONN;
-		musb_writeb(musb->mregs, MUSB_POWER, reg);
-
-	} else if (is_host_active(musb)) {
-		/* we know all the children are suspended; sometimes
-		 * they will even be wakeup-enabled.
-		 */
-	}
-
-	spin_unlock_irqrestore(&musb->lock, flags);
 	return 0;
 }
 
