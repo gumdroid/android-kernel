@@ -16,8 +16,11 @@
 #include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/gpio.h>
+#include <linux/gpio_keys.h>
 #include <linux/interrupt.h>
 
+#include <linux/spi/spi.h>
+#include <linux/spi/ads7846.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/fixed.h>
 #include <linux/i2c/twl.h>
@@ -51,6 +54,57 @@
 #define IGEP2_RC_GPIO_WIFI_NPD     138
 #define IGEP2_RC_GPIO_WIFI_NRESET  139
 #define IGEP2_RC_GPIO_BT_NRESET    137
+
+#ifdef CONFIG_USB_ANDROID
+
+#include <linux/usb/android_composite.h>
+
+#define GOOGLE_VENDOR_ID		0x18d1
+#define GOOGLE_PRODUCT_ID		0x9018
+#define GOOGLE_ADB_PRODUCT_ID		0x9015
+
+static char *usb_functions_adb[] = {
+	"adb",
+};
+
+static char *usb_functions_all[] = {
+	"adb",
+};
+
+static struct android_usb_product usb_products[] = {
+	{
+		.product_id	= GOOGLE_PRODUCT_ID,
+		.num_functions	= ARRAY_SIZE(usb_functions_adb),
+		.functions	= usb_functions_adb,
+	},
+};
+
+static struct android_usb_platform_data android_usb_pdata = {
+	.vendor_id		= GOOGLE_VENDOR_ID,
+	.product_id		= GOOGLE_PRODUCT_ID,
+	.functions		= usb_functions_all,
+	.products		= usb_products,
+	.version		= 0x0100,
+	.product_name		= "rowboat gadget",
+	.manufacturer_name	= "igep",
+	.serial_number		= "IGEP0020",
+	.num_functions		= ARRAY_SIZE(usb_functions_all),
+};
+
+static struct platform_device androidusb_device = {
+	.name	= "android_usb",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &android_usb_pdata,
+	},
+};
+
+static void igep2_android_gadget_init(void)
+{
+	platform_device_register(&androidusb_device);
+}
+
+#endif
 
 /*
  * IGEP2 Hardware Revision Table
@@ -246,6 +300,73 @@ static inline void __init igep2_init_smsc911x(void)
 #else
 static inline void __init igep2_init_smsc911x(void) { }
 #endif
+
+#if defined(CONFIG_TOUCHSCREEN_ADS7846) || \
+	defined(CONFIG_TOUCHSCREEN_ADS7846_MODULE)
+
+static struct omap2_mcspi_device_config tsc2046_mcspi_config = {
+	.turbo_mode	= 0,
+	.single_channel	= 1,	/* 0: slave, 1: master */
+};
+
+static int ads7846_get_pendown_state(void)
+{
+	return !gpio_get_value(IGEP2_GPIO_TSC2046_PDN);
+}
+
+static struct ads7846_platform_data tsc2046_pdata = {
+	.x_max			= 0x0fff,
+	.y_max			= 0x0fff,
+	.x_plate_ohms		= 180,
+	.pressure_max		= 255,
+	.debounce_max		= 10,
+	.debounce_tol		= 3,
+	.debounce_rep		= 1,
+	.get_pendown_state	= ads7846_get_pendown_state,
+	.keep_vref_on		= 1,
+	.settle_delay_usecs	= 150,
+	.wakeup			= true,
+};
+
+static struct spi_board_info tsc2046_spi_board_info[] = {
+	{
+		/*
+		 * TSC2046 operates at a max freqency of 2MHz, so
+		 * operate slightly below at 1.5MHz
+		 */
+		.modalias		= "ads7846",
+		.bus_num		= 1,
+		.chip_select		= 1,
+		.max_speed_hz		= 1500000,
+		.controller_data	= &tsc2046_mcspi_config,
+		.irq			= OMAP_GPIO_IRQ(IGEP2_GPIO_TSC2046_PDN),
+		.platform_data		= &tsc2046_pdata,
+	},
+};
+
+static void __init igep0022_tsc2046_init(void)
+{
+	omap_mux_init_gpio(IGEP2_GPIO_TSC2046_PDN, OMAP_PIN_INPUT);
+	omap_mux_init_signal("mcspi1_cs1", 0);
+
+	if ((gpio_request(IGEP2_GPIO_TSC2046_PDN, "TSC2046 IRQ") == 0)
+		&& (gpio_direction_input(IGEP2_GPIO_TSC2046_PDN) == 0)) {
+		gpio_export(IGEP2_GPIO_TSC2046_PDN, 0);
+	} else {
+		pr_err("IGEP: Could not obtain gpio GPIO_TSC2046_PDN\n");
+        return;
+    }
+
+	spi_register_board_info(tsc2046_spi_board_info,
+				ARRAY_SIZE(tsc2046_spi_board_info));
+}
+
+#else
+static inline void igep0022_tsc2046_init(void) {}
+#endif
+
+static struct omap_board_config_kernel igep2_config[] __initdata = {
+};
 
 static struct regulator_consumer_supply igep2_vmmc1_supply =
 	REGULATOR_SUPPLY("vmmc", "mmci-omap-hs.0");
@@ -468,8 +589,26 @@ static struct omap_dss_device igep2_dvi_device = {
 	.platform_disable	= igep2_disable_dvi,
 };
 
+/* Powertip 4.3 inch (480 x RGB x 272) TFT with Touch-Panel */
+static struct omap_dss_device igep2_lcd43_device = {
+	.type			= OMAP_DISPLAY_TYPE_DPI,
+	.name			= "lcd-43",
+	.driver_name		= "ph480272t",
+	.phy.dpi.data_lines	= 24,
+};
+
+/* Seiko 7.0 inch WVGA (800 x RGB x 480) TFT with Touch-Panel */
+static struct omap_dss_device igep2_lcd70_device = {
+	.type			= OMAP_DISPLAY_TYPE_DPI,
+	.name			= "lcd-70",
+	.driver_name		= "70wvw1tz3",
+	.phy.dpi.data_lines	= 24,
+};
+
 static struct omap_dss_device *igep2_dss_devices[] = {
-	&igep2_dvi_device
+	&igep2_dvi_device,
+//	&igep2_lcd43_device,
+//	&igep2_lcd70_device,
 };
 
 static struct omap_dss_board_info igep2_dss_data = {
@@ -486,9 +625,28 @@ static struct platform_device igep2_dss_device = {
 	},
 };
 
+static struct regulator_consumer_supply igep2_vdac_supply = {
+	.supply		= "vdda_dac",
+	.dev		= &igep2_dss_device.dev,
+};
+
 static struct regulator_consumer_supply igep2_vpll2_supply = {
 	.supply	= "vdds_dsi",
 	.dev	= &igep2_dss_device.dev,
+};
+
+/* VDAC for DSS driving S-Video (8 mA unloaded, max 65 mA) */
+static struct regulator_init_data igep2_vdac = {
+	.constraints = {
+		.min_uV			= 1800000,
+		.max_uV			= 1800000,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL
+					| REGULATOR_MODE_STANDBY,
+		.valid_ops_mask		= REGULATOR_CHANGE_MODE
+					| REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies	= 1,
+	.consumer_supplies	= &igep2_vdac_supply,
 };
 
 static struct regulator_init_data igep2_vpll2 = {
@@ -536,6 +694,37 @@ static struct twl4030_codec_data igep2_codec_data = {
 	.audio = &igep2_audio_data,
 };
 
+static int igep2_keymap[] = {
+	KEY(0, 0, KEY_LEFT),
+	KEY(0, 1, KEY_RIGHT),
+	KEY(0, 2, KEY_A),
+	KEY(0, 3, KEY_B),
+	KEY(1, 0, KEY_DOWN),
+	KEY(1, 1, KEY_UP),
+	KEY(1, 2, KEY_E),
+	KEY(1, 3, KEY_F),
+	KEY(2, 0, KEY_ENTER),
+	KEY(2, 1, KEY_I),
+	KEY(2, 2, KEY_J),
+	KEY(2, 3, KEY_K),
+	KEY(3, 0, KEY_M),
+	KEY(3, 1, KEY_N),
+	KEY(3, 2, KEY_O),
+	KEY(3, 3, KEY_P)
+};
+
+static struct matrix_keymap_data igep2_keymap_data = {
+	.keymap			= igep2_keymap,
+	.keymap_size		= ARRAY_SIZE(igep2_keymap),
+};
+
+static struct twl4030_keypad_data igep2_keypad_pdata = {
+	.keymap_data	= &igep2_keymap_data,
+	.rows		= 4,
+	.cols		= 4,
+	.rep		= 1,
+};
+
 static struct twl4030_platform_data igep2_twldata = {
 	.irq_base	= TWL4030_IRQ_BASE,
 	.irq_end	= TWL4030_IRQ_END,
@@ -544,7 +733,9 @@ static struct twl4030_platform_data igep2_twldata = {
 	.usb		= &igep2_usb_data,
 	.codec		= &igep2_codec_data,
 	.gpio		= &igep2_twl4030_gpio_pdata,
+	.keypad		= &igep2_keypad_pdata,
 	.vmmc1          = &igep2_vmmc1,
+	.vdac 		= &igep2_vdac,
 	.vpll2		= &igep2_vpll2,
 	.vio		= &igep2_vio,
 };
@@ -600,12 +791,6 @@ static const struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
 	.reset_gpio_port[2] = -EINVAL,
 };
 
-#ifdef CONFIG_OMAP_MUX
-static struct omap_board_mux board_mux[] __initdata = {
-	{ .reg_offset = OMAP_MUX_TERMINATOR },
-};
-#endif
-
 #if defined(CONFIG_LIBERTAS_SDIO) || defined(CONFIG_LIBERTAS_SDIO_MODULE)
 
 static void __init igep2_wlan_bt_init(void)
@@ -650,18 +835,61 @@ static void __init igep2_wlan_bt_init(void)
 static inline void __init igep2_wlan_bt_init(void) { }
 #endif
 
+static struct gpio_keys_button igep0022_gpio_keys[] = {
+       {
+		.code   = KEY_ESC,
+		.gpio   = 184,
+		.desc   = "user0",
+		.wakeup = 1,
+	},
+};
+
+static struct gpio_keys_platform_data igep0022_gpio_keys_pdata = {
+	.buttons	= igep0022_gpio_keys,
+	.nbuttons	= ARRAY_SIZE(igep0022_gpio_keys),
+};
+
+static struct platform_device igep0022_gpio_keys_device = {
+	.name	= "gpio-keys",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &igep0022_gpio_keys_pdata,
+	},
+};
+
+static void __init igep022_gpio_keys_init(void)
+{
+	omap_mux_init_gpio(184, OMAP_PIN_INPUT_PULLUP);
+
+	platform_device_register(&igep0022_gpio_keys_device);
+}
+
+#ifdef CONFIG_OMAP_MUX
+static struct omap_board_mux board_mux[] __initdata = {
+	{ .reg_offset = OMAP_MUX_TERMINATOR },
+};
+#else
+#define board_mux	NULL
+#endif
+
 static void __init igep2_init(void)
 {
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
 
 	/* Get IGEP2 hardware revision */
 	igep2_get_revision();
+
 	/* Register I2C busses and drivers */
 	igep2_i2c_init();
+
 	platform_add_devices(igep2_devices, ARRAY_SIZE(igep2_devices));
 	omap_serial_init();
 	usb_musb_init(&musb_board_data);
 	usb_ehci_init(&ehci_pdata);
+
+#ifdef CONFIG_USB_ANDROID
+	igep2_android_gadget_init();
+#endif
 
 	igep2_flash_init();
 	igep2_leds_init();
@@ -674,6 +902,14 @@ static void __init igep2_init(void)
 	 */
 	igep2_wlan_bt_init();
 
+#if defined(CONFIG_TOUCHSCREEN_ADS7846) || \
+	defined(CONFIG_TOUCHSCREEN_ADS7846_MODULE)
+	/* Touchscreen interface using ADS7846/TSC2046 */
+	igep0022_tsc2046_init();
+#endif
+
+	/* Use standard kernel driver for gpio_keys */
+	//igep022_gpio_keys_init();
 }
 
 MACHINE_START(IGEP0020, "IGEP v2 board")
