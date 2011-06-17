@@ -121,6 +121,7 @@ static int omap3_enter_idle(struct cpuidle_device *dev,
 {
 	struct omap3_processor_cx *cx = cpuidle_get_statedata(state);
 	struct timespec ts_preidle, ts_postidle, ts_idle;
+	u32 core_next_state, per_next_state = 0, per_saved_state = 0;
 	u32 mpu_state = cx->mpu_state, core_state = cx->core_state;
 
 	current_cx_state = *cx;
@@ -133,6 +134,22 @@ static int omap3_enter_idle(struct cpuidle_device *dev,
 
 	pwrdm_set_next_pwrst(mpu_pd, mpu_state);
 	pwrdm_set_next_pwrst(core_pd, core_state);
+
+	/*
+	 * Don't allow PER to go to OFF in idle state
+	 * transitions.
+	 * This is a tempory fix for display flashing issue
+	 * which occurs when off mode is enabled
+	 */
+
+	per_next_state = per_saved_state = pwrdm_read_next_pwrst(per_pd);
+	if (per_next_state == PWRDM_POWER_OFF)
+		per_next_state = PWRDM_POWER_RET;
+
+	/* Are we changing PER target state? */
+	if (per_next_state != per_saved_state)
+		pwrdm_set_next_pwrst(per_pd, per_next_state);
+
 
 	if (omap_irq_pending() || need_resched())
 		goto return_sleep_time;
@@ -153,6 +170,10 @@ static int omap3_enter_idle(struct cpuidle_device *dev,
 return_sleep_time:
 	getnstimeofday(&ts_postidle);
 	ts_idle = timespec_sub(ts_postidle, ts_preidle);
+
+	/* Restore original PER state if it was modified */
+	if (per_next_state != per_saved_state)
+		pwrdm_set_next_pwrst(per_pd, per_saved_state);
 
 	local_irq_enable();
 	local_fiq_enable();
