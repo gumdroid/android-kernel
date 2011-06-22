@@ -346,6 +346,16 @@ config OMAP3_EMU
 	help
 	  Say Y here to enable debugging hardware of omap3
 
+config OMAP3_PM_DISABLE_VT_SWITCH
+        bool "OMAP3 Disable PM Console Switch"
+        depends on ARCH_OMAP3
+        default y
+        help
+          This option disables the default PM VT switch behavior for OMAP3.
+          Some platforms hang during suspend due to a failed attempt to 
+          perform the VT switch.  The VT switch is unnecessary on many 
+          platforms.
+
 config OMAP3_SDRC_AC_TIMING
 	bool "Enable SDRC AC timing register changes"
 	depends on ARCH_OMAP3

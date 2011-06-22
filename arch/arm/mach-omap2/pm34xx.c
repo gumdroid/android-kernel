@@ -1130,6 +1130,10 @@ static int __init omap3_pm_init(void)
 
 	printk(KERN_ERR "Power Management for TI OMAP3.\n");
 
+#ifdef CONFIG_OMAP3_PM_DISABLE_VT_SWITCH
+        pm_set_vt_switch(0);
+#endif
+
 	/* XXX prcm_setup_regs needs to be before enabling hw
 	 * supervised mode for powerdomains */
 	prcm_setup_regs();
