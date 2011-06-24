@@ -838,7 +838,7 @@ static void ads7846_dev_init(void)
 		printk(KERN_ERR "can't get ads7846 pen down GPIO\n");
 
 	gpio_direction_input(OMAP3_EVM_TS_GPIO);
-	gpio_set_debounce(OMAP3_EVM_TS_GPIO, 310);
+	gpio_set_debounce(OMAP3_EVM_TS_GPIO, 0xa);
 }
 
 static int ads7846_get_pendown_state(void)
