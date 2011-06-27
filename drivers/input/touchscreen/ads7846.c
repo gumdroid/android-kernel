@@ -143,16 +143,25 @@ struct ads7846 {
 	void			(*wait_for_sync)(void);
 };
 
-#ifdef CONFIG_MACH_OMAP3EVM
+#if defined(CONFIG_MACH_OMAP3EVM) && defined(CONFIG_MACH_FLASHBOARD)
+#define OMAP3EVM_XMIN		0x078
+#define OMAP3EVM_XMAX		0xF50
+#define OMAP3EVM_YMIN		0x140
+#define OMAP3EVM_YMAX		0xFA0
+#define OMAP3EVM_XRES		800
+#define OMAP3EVM_YRES	        480
+#endif
 
+#if defined(CONFIG_MACH_OMAP3EVM) && !defined(CONFIG_MACH_FLASHBOARD)
 #define OMAP3EVM_XMIN		0x136
 #define OMAP3EVM_XMAX		0xe84
 #define OMAP3EVM_YMIN		0x0d9
 #define OMAP3EVM_YMAX		0xec6
 #define OMAP3EVM_XRES		480
 #define OMAP3EVM_YRES	        640
-
 #endif
+
+
 /* leave chip selected when we're done, for quicker re-select? */
 #if	0
 #define	CS_CHANGE(xfer)	((xfer).cs_change = 1)
@@ -854,13 +863,18 @@ static void ads7846_report_state(struct ads7846 *ts)
 			dev_vdbg(&ts->spi->dev, "DOWN\n");
 		}
 
-
-
 #ifdef CONFIG_MACH_OMAP3EVM
+#ifdef CONFIG_MACH_FLASHBOARD
+		x = ((pdata->x_max * (x - OMAP3EVM_XMIN)) / \
+				(OMAP3EVM_XMAX - OMAP3EVM_XMIN));
+		y = ((pdata->y_max * (y - OMAP3EVM_YMIN)) / \
+				(OMAP3EVM_YMAX - OMAP3EVM_YMIN));
+#else
 		x = pdata->x_max -
 			((pdata->x_max * (x - OMAP3EVM_XMIN)) / (OMAP3EVM_XMAX- OMAP3EVM_XMIN));
 		y = pdata->y_max -
 			((pdata->y_max * (y - OMAP3EVM_YMIN)) / (OMAP3EVM_YMAX - OMAP3EVM_YMIN));
+#endif
 #endif
 		input_report_abs(input, ABS_X, x);
 		input_report_abs(input, ABS_Y, y);

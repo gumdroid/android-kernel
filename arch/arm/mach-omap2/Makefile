@@ -278,6 +278,10 @@ obj-y					+= $(beagle-camera-m) $(beagle-camera-y)
 endif
 
 ifeq ($(CONFIG_MACH_OMAP3EVM),y)
+ifeq ($(CONFIG_MACH_FLASHBOARD),y)
+evm-camera-$(CONFIG_VIDEO_OMAP3)	:= board-omap3beagle-camera.o
+else
 evm-camera-$(CONFIG_VIDEO_OMAP3)	:= board-omap3evm-camera.o
+endif
 obj-y					+= $(evm-camera-m) $(evm-camera-y)
 endif

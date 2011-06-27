@@ -73,6 +73,9 @@
 #include <linux/fcntl.h>
 #include <linux/sched.h>
 #include <linux/interrupt.h>
+#ifdef CONFIG_MACH_FLASHBOARD
+#include <linux/gpio.h>
+#endif
 #include <linux/tty.h>
 #include <linux/tty_driver.h>
 #include <linux/tty_flip.h>
@@ -113,6 +116,10 @@
 #include "linux/i2c/twl.h"
 /* WL1271: To set BT_EN of TI's WL1271 Bluetooth chip */
 #define TIOSETWL1271POWER 0x6000
+#endif
+
+#ifdef CONFIG_MACH_FLASHBOARD
+#define OMAP3_EVEM_BT_PWR_GPIO  136
 #endif
 
 #undef TTY_DEBUG_HANGUP
@@ -166,7 +173,7 @@ static void release_tty(struct tty_struct *tty, int idx);
 static void __proc_set_tty(struct task_struct *tsk, struct tty_struct *tty);
 static void proc_set_tty(struct task_struct *tsk, struct tty_struct *tty);
 
-#ifdef CONFIG_BT_WL1271
+#if defined(CONFIG_BT_WL1271) && !defined(CONFIG_MACH_FLASHBOARD)
 /* WL1271: Power on sequence */
 static int bt_init_power(void)
 {
@@ -251,7 +258,52 @@ static int tty_setbt_power(int __user *p)
 	printk(KERN_INFO "WL1271: Powering %s\n", power ? "on" : "off");
 	return 0;
 } /* End of set_bt_power() */
-#endif
+#endif /* #if defined (CONFIG_BT_WL1271) && !defined(CONFIG_MACH_FLASHBOARD) */
+
+#ifdef CONFIG_MACH_FLASHBOARD
+/* WL1271: Power on sequence */
+static int bt_init_power(void)
+{
+	/* enable BT_Resetx power pin (on WL1271) as output, set pin to low */
+	gpio_request(OMAP3_EVEM_BT_PWR_GPIO, "enable BT RESETX");
+	gpio_direction_output(OMAP3_EVEM_BT_PWR_GPIO, 0);
+
+	/* GPIO_136 -> LOW */
+	gpio_set_value(OMAP3_EVEM_BT_PWR_GPIO, 0);
+
+	mdelay(50);
+	/* GPIO_136 -> HIGH */
+	gpio_set_value(OMAP3_EVEM_BT_PWR_GPIO, 1);
+
+	mdelay(50);
+	/* GPIO_136 -> LOW */
+	gpio_set_value(OMAP3_EVEM_BT_PWR_GPIO, 0);
+	printk(KERN_INFO "WL1271: BT_EN GPIO initialized\n");
+
+	return 0;
+} /* End of init_bt_power() */
+
+/* WL1271: Set BT_EN */
+static int tty_setbt_power(int __user *p)
+{
+	int power;
+
+	if (get_user(power, p))
+		return -EFAULT;
+
+	printk(KERN_INFO "Set BT_EN of WL1271\n");
+	/* Power settings argument should either be 1 or 0 */
+	power = power ? 1 : 0;
+
+	if (power)
+		gpio_set_value(OMAP3_EVEM_BT_PWR_GPIO, 1);
+	else
+		gpio_set_value(OMAP3_EVEM_BT_PWR_GPIO, 0);
+
+	printk(KERN_INFO "WL1271: Powering %s\n", power ? "on" : "off");
+	return 0;
+} /* End of set_bt_power() */
+#endif /* #ifdef CONFIG_MACH_FLASHBOARD */
 
 /**
  *	alloc_tty_struct	-	allocate a tty object

@@ -106,7 +106,11 @@ static struct mt9v113_platform_data beagle_mt9v113_platform_data = {
 };
 
 
+#ifdef CONFIG_MACH_FLASHBOARD
+#define MT9V113_I2C_BUS_NUM		3
+#else
 #define MT9V113_I2C_BUS_NUM		2
+#endif
 
 static struct i2c_board_info beagle_camera_i2c_devices[] = {
 	{
@@ -147,7 +151,11 @@ static int __init beagle_cam_init(void)
 	/*
 	 * Regulator supply required for camera interface
 	 */
+#ifdef CONFIG_MACH_FLASHBOARD
+	beagle_1v8 = regulator_get(NULL, "cam_2v8");
+#else
 	beagle_1v8 = regulator_get(NULL, "cam_1v8");
+#endif
 	if (IS_ERR(beagle_1v8)) {
 		printk(KERN_ERR "cam_1v8 regulator missing\n");
 		return PTR_ERR(beagle_1v8);
