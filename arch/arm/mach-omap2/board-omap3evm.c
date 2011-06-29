@@ -910,8 +910,13 @@ static struct regulator_init_data omap3_evm_vio = {
 
 #ifdef CONFIG_WL12XX_PLATFORM_DATA
 
+#ifdef CONFIG_MACH_FLASHBOARD
+#define OMAP3EVM_WLAN_PMENA_GPIO       (139)
+#define OMAP3EVM_WLAN_IRQ_GPIO         (138)
+#else
 #define OMAP3EVM_WLAN_PMENA_GPIO       (150)
 #define OMAP3EVM_WLAN_IRQ_GPIO         (149)
+#endif
 
 static struct regulator_consumer_supply omap3evm_vmmc2_supply =
 	REGULATOR_SUPPLY("vmmc", "mmci-omap-hs.1");
@@ -1210,12 +1215,17 @@ static struct omap_board_mux omap36x_board_mux[] __initdata = {
 	OMAP3_MUX(SYS_BOOT5, OMAP_MUX_MODE3 | OMAP_PIN_OFF_NONE),
 	OMAP3_MUX(SYS_BOOT6, OMAP_MUX_MODE3 | OMAP_PIN_OFF_NONE),
 #ifdef CONFIG_WL12XX_PLATFORM_DATA
+#ifdef CONFIG_MACH_FLASHBOARD
+        /* WLAN IRQ - GPIO 138 */
+        OMAP3_MUX(SDMMC2_DAT6, OMAP_MUX_MODE4 | OMAP_PIN_INPUT),
+        /* WLAN POWER ENABLE - GPIO 139 */
+        OMAP3_MUX(SDMMC2_DAT7, OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT),
+#else
 	/* WLAN IRQ - GPIO 149 */
 	OMAP3_MUX(UART1_RTS, OMAP_MUX_MODE4 | OMAP_PIN_INPUT),
-
 	/* WLAN POWER ENABLE - GPIO 150 */
 	OMAP3_MUX(UART1_CTS, OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT),
-
+#endif
 	/* MMC2 SDIO pin muxes for WL12xx */
 	OMAP3_MUX(SDMMC2_CLK, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),
 	OMAP3_MUX(SDMMC2_CMD, OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP),

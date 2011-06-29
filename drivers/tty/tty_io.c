@@ -173,7 +173,9 @@ static void release_tty(struct tty_struct *tty, int idx);
 static void __proc_set_tty(struct task_struct *tsk, struct tty_struct *tty);
 static void proc_set_tty(struct task_struct *tsk, struct tty_struct *tty);
 
-#if defined(CONFIG_BT_WL1271) && !defined(CONFIG_MACH_FLASHBOARD)
+#ifdef CONFIG_BT_WL1271
+
+#ifndef CONFIG_MACH_FLASHBOARD
 /* WL1271: Power on sequence */
 static int bt_init_power(void)
 {
@@ -258,9 +260,8 @@ static int tty_setbt_power(int __user *p)
 	printk(KERN_INFO "WL1271: Powering %s\n", power ? "on" : "off");
 	return 0;
 } /* End of set_bt_power() */
-#endif /* #if defined (CONFIG_BT_WL1271) && !defined(CONFIG_MACH_FLASHBOARD) */
 
-#ifdef CONFIG_MACH_FLASHBOARD
+#else /* #if !defined(CONFIG_MACH_FLASHBOARD) */
 /* WL1271: Power on sequence */
 static int bt_init_power(void)
 {
@@ -304,6 +305,7 @@ static int tty_setbt_power(int __user *p)
 	return 0;
 } /* End of set_bt_power() */
 #endif /* #ifdef CONFIG_MACH_FLASHBOARD */
+#endif /* #ifdef CONFIG_BT_WL1271 */
 
 /**
  *	alloc_tty_struct	-	allocate a tty object
