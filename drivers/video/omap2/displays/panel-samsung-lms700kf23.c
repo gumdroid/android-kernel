@@ -46,6 +46,7 @@ static struct omap_video_timings samsung_lms_timings = {
 	.vbp		= 8,
 };
 
+#ifndef CONFIG_MACH_FLASHBOARD
 static int samsung_lms_bl_update_status(struct backlight_device *bl)
 {
 	struct omap_dss_device *dssdev = dev_get_drvdata(&bl->dev);
@@ -76,27 +77,29 @@ static const struct backlight_ops samsung_lms_bl_ops = {
 	.get_brightness = samsung_lms_bl_get_brightness,
 	.update_status  = samsung_lms_bl_update_status,
 };
-
+#endif
 
 
 static int samsung_lms_panel_probe(struct omap_dss_device *dssdev)
 {
+#ifndef CONFIG_MACH_FLASHBOARD
 	struct backlight_properties props;
 	struct backlight_device *bl;
 	struct samsung_lms_data *sd;
 	int r;
+#endif
 
 	dssdev->panel.config = OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_IVS |
 		OMAP_DSS_LCD_IHS;
 	dssdev->panel.acb = 0x28;
 	dssdev->panel.timings = samsung_lms_timings;
 
+#ifndef CONFIG_MACH_FLASHBOARD
 	sd = kzalloc(sizeof(*sd), GFP_KERNEL);
 	if (!sd)
 		return -ENOMEM;
 
 	dev_set_drvdata(&dssdev->dev, sd);
-
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.max_brightness = dssdev->max_backlight_level;
 
@@ -115,20 +118,22 @@ static int samsung_lms_panel_probe(struct omap_dss_device *dssdev)
 	r = samsung_lms_bl_update_status(bl);
 	if (r < 0)
 		dev_err(&dssdev->dev, "failed to set lcd brightness\n");
+#endif
 
 	return 0;
 }
 
 static void samsung_lms_panel_remove(struct omap_dss_device *dssdev)
 {
+#ifndef CONFIG_MACH_FLASHBOARD
 	struct samsung_lms_data *sd = dev_get_drvdata(&dssdev->dev);
 	struct backlight_device *bl = sd->bl;
 
 	bl->props.power = FB_BLANK_POWERDOWN;
 	samsung_lms_bl_update_status(bl);
 	backlight_device_unregister(bl);
-
 	kfree(sd);
+#endif
 }
 
 static int samsung_lms_power_on(struct omap_dss_device *dssdev)
