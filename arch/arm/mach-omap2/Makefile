@@ -244,7 +244,9 @@ obj-$(CONFIG_MACH_OMAP3517EVM)		+= board-am3517evm.o \
 					   board-flash.o \
 					   hsmmc.o
 
-obj-$(CONFIG_MACH_CRANEBOARD)		+= board-am3517crane.o
+obj-$(CONFIG_MACH_CRANEBOARD)		+= board-am3517crane.o \
+					   board-flash.o \
+					   hsmmc.o
 
 obj-$(CONFIG_MACH_SBC3530)		+= board-omap3stalker.o \
 					   hsmmc.o
