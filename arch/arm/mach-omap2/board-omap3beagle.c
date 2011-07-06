@@ -116,6 +116,7 @@ enum {
 	OMAP3BEAGLE_BOARD_C1_3,
 	OMAP3BEAGLE_BOARD_C4,
 	OMAP3BEAGLE_BOARD_XM,
+	OMAP3BEAGLE_BOARD_XMC,
 };
 
 static u8 omap3_beagle_version;
@@ -165,6 +166,10 @@ static void __init omap3_beagle_init_rev(void)
 	case 5:
 		printk(KERN_INFO "OMAP3 Beagle Rev: C4\n");
 		omap3_beagle_version = OMAP3BEAGLE_BOARD_C4;
+		break;
+	case 2:
+		printk(KERN_INFO "OMAP3 Beagle Rev: xM C\n");
+		omap3_beagle_version = OMAP3BEAGLE_BOARD_XMC;
 		break;
 	case 0:
 		printk(KERN_INFO "OMAP3 Beagle Rev: xM\n");
@@ -322,7 +327,7 @@ static struct gpio_led gpio_leds[];
 static int beagle_twl_gpio_setup(struct device *dev,
 		unsigned gpio, unsigned ngpio)
 {
-	if (omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XM) {
+	if (omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XM || omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XMC) {
 		mmc[0].gpio_wp = -EINVAL;
 	} else if ((omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_C1_3) ||
 		(omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_C4)) {
@@ -342,7 +347,7 @@ static int beagle_twl_gpio_setup(struct device *dev,
 	/* REVISIT: need ehci-omap hooks for external VBUS
 	 * power switch and overcurrent detect
 	 */
-	if (omap3_beagle_get_rev() != OMAP3BEAGLE_BOARD_XM) {
+	if (omap3_beagle_get_rev() != OMAP3BEAGLE_BOARD_XM || omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XMC) {
 		gpio_request(gpio + 1, "EHCI_nOC");
 		gpio_direction_input(gpio + 1);
 	}
@@ -359,7 +364,7 @@ static int beagle_twl_gpio_setup(struct device *dev,
 		gpio_direction_output(gpio + TWL4030_GPIO_MAX, 0);
 
 	/* DVI reset GPIO is different between beagle revisions */
-	if (omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XM)
+	if (omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XM || omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XMC)
 		beagle_dvi_device.reset_gpio = 129;
 	else
 		beagle_dvi_device.reset_gpio = 170;
@@ -389,7 +394,7 @@ static int beagle_twl_gpio_setup(struct device *dev,
 	 * P7/P8 revisions(prototype): Camera EN
 	 * A2+ revisions (production): LDO (supplies DVI, serial, led blocks)
 	 */
-	if (omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XM) {
+	if (omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XM || omap3_beagle_get_rev() == OMAP3BEAGLE_BOARD_XMC) {
 		gpio_request(gpio + 1, "nDVI_PWR_EN");
 		gpio_direction_output(gpio + 1, 0);
 		gpio_request(gpio + 2, "DVI_LDO_EN");
