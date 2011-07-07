@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux/arm 2.6.37 Kernel Configuration
-# Mon Jun 20 16:54:51 2011
+# Thu Jul  7 19:40:55 2011
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -1831,6 +1831,7 @@ CONFIG_SND_OMAP_SOC_OMAP3EVM=y
 CONFIG_SND_SOC_I2C_AND_SPI=y
 # CONFIG_SND_SOC_ALL_CODECS is not set
 CONFIG_SND_SOC_TWL4030=y
+CONFIG_SND_SOC_WL1271BT=y
 # CONFIG_SOUND_PRIME is not set
 CONFIG_HID_SUPPORT=y
 CONFIG_HID=y

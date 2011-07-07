@@ -63,6 +63,10 @@
 #include "hsmmc.h"
 #include "board-flash.h"
 
+#ifdef CONFIG_SND_SOC_WL1271BT
+#include "control.h"
+#endif
+
 #ifdef CONFIG_MACH_FLASHBOARD
 #define OMAP3_EVM_TS_GPIO	177
 #else
@@ -1064,8 +1068,40 @@ static void __init omap3_evm_init_irq(void)
 	gpmc_init();
 }
 
+#ifdef CONFIG_SND_SOC_WL1271BT
+/* WL1271 Audio */
+static struct platform_device wl1271bt_audio_device = {
+	.name		= "wl1271bt",
+	.id		= -1,
+};
+
+static struct platform_device wl1271bt_codec_device = {
+	.name		= "wl1271bt-dummy-codec",
+	.id		= -1,
+};
+
+static void wl1271bt_clk_setup(void)
+{
+	u16 reg;
+	u32 val;
+
+	/*
+	 * Set DEVCONF0 register to connect
+	 * MCBSP1_CLKR -> MCBSP1_CLKX & MCBSP1_FSR -> MCBSP1_FSX
+	 */
+	reg = OMAP2_CONTROL_DEVCONF0;
+	val = omap_ctrl_readl(reg);
+	val = val | 0x18;
+	omap_ctrl_writel(val, reg);
+}
+#endif
+
 static struct platform_device *omap3_evm_devices[] __initdata = {
 	&omap3_evm_dss_device,
+#ifdef CONFIG_SND_SOC_WL1271BT
+	&wl1271bt_audio_device,
+	&wl1271bt_codec_device,
+#endif
 #ifdef CONFIG_MACH_FLASHBOARD
 	&keys_gpio,
 #endif
@@ -1351,6 +1387,9 @@ static void __init omap3_evm_init(void)
 	if (wl12xx_set_platform_data(&omap3evm_wlan_data))
 		pr_err("error setting wl12xx data\n");
 	platform_device_register(&omap3evm_wlan_regulator);
+#endif
+#ifdef CONFIG_SND_SOC_WL1271BT
+	wl1271bt_clk_setup();
 #endif
 }
 
