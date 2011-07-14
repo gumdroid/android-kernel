@@ -3,6 +3,7 @@ config LIBERTAS
 	depends on CFG80211
 	select WIRELESS_EXT
 	select WEXT_SPY
+	select WEXT_PRIV
 	select LIB80211
 	select FW_LOADER
 	---help---
