@@ -278,7 +278,7 @@ static inline void __init igep2_init_smsc911x(void)
 	unsigned long cs_mem_base;
 
 	if (gpmc_cs_request(IGEP2_SMSC911X_CS, SZ_16M, &cs_mem_base) < 0) {
-		pr_err("IGEP v2: Failed request for GPMC mem for smsc911x\n");
+		pr_err("IGEP2: Failed request for GPMC mem for smsc911x\n");
 		gpmc_cs_free(IGEP2_SMSC911X_CS);
 		return;
 	}
@@ -290,7 +290,7 @@ static inline void __init igep2_init_smsc911x(void)
 	    (gpio_direction_input(IGEP2_SMSC911X_GPIO) == 0)) {
 		gpio_export(IGEP2_SMSC911X_GPIO, 0);
 	} else {
-		pr_err("IGEP v2: Could not obtain gpio for for SMSC911X IRQ\n");
+		pr_err("IGEP2: Could not obtain gpio for for SMSC911X IRQ\n");
 		return;
 	}
 
@@ -353,7 +353,7 @@ static void __init igep0022_tsc2046_init(void)
 		&& (gpio_direction_input(IGEP2_GPIO_TSC2046_PDN) == 0)) {
 		gpio_export(IGEP2_GPIO_TSC2046_PDN, 0);
 	} else {
-		pr_err("IGEP: Could not obtain gpio GPIO_TSC2046_PDN\n");
+		pr_err("IGEP2: Could not obtain gpio GPIO_TSC2046_PDN\n");
         return;
     }
 
@@ -441,6 +441,7 @@ static struct omap2_hsmmc_info mmc[] = {
 	},
 #if defined(CONFIG_LIBERTAS_SDIO) || defined(CONFIG_LIBERTAS_SDIO_MODULE)
 	{
+		.name 		= "vwlan",
 		.mmc		= 2,
 		.caps		= MMC_CAP_4_BIT_DATA,
 		.gpio_cd	= -EINVAL,
@@ -502,19 +503,19 @@ static inline void igep2_leds_init(void)
 	    (gpio_direction_output(IGEP2_GPIO_LED0_RED, 0) == 0))
 		gpio_export(IGEP2_GPIO_LED0_RED, 0);
 	else
-		pr_warning("IGEP v2: Could not obtain gpio GPIO_LED0_RED\n");
+		pr_warning("IGEP2: Could not obtain gpio GPIO_LED0_RED\n");
 
 	if ((gpio_request(IGEP2_GPIO_LED0_GREEN, "gpio-led:green:d0") == 0) &&
 	    (gpio_direction_output(IGEP2_GPIO_LED0_GREEN, 0) == 0))
 		gpio_export(IGEP2_GPIO_LED0_GREEN, 0);
 	else
-		pr_warning("IGEP v2: Could not obtain gpio GPIO_LED0_GREEN\n");
+		pr_warning("IGEP2: Could not obtain gpio GPIO_LED0_GREEN\n");
 
 	if ((gpio_request(IGEP2_GPIO_LED1_RED, "gpio-led:red:d1") == 0) &&
 	    (gpio_direction_output(IGEP2_GPIO_LED1_RED, 0) == 0))
 		gpio_export(IGEP2_GPIO_LED1_RED, 0);
 	else
-		pr_warning("IGEP v2: Could not obtain gpio GPIO_LED1_RED\n");
+		pr_warning("IGEP2: Could not obtain gpio GPIO_LED1_RED\n");
 
 }
 #endif
@@ -548,7 +549,7 @@ static int igep2_twl_gpio_setup(struct device *dev,
 	    && (gpio_direction_output(gpio + TWL4030_GPIO_MAX + 1, 1) == 0))
 		gpio_export(gpio + TWL4030_GPIO_MAX + 1, 0);
 	else
-		pr_warning("IGEP v2: Could not obtain gpio GPIO_LED1_GREEN\n");
+		pr_warning("IGEP2: Could not obtain gpio GPIO_LED1_GREEN\n");
 #else
 	igep2_gpio_leds[3].gpio = gpio + TWL4030_GPIO_MAX + 1;
 #endif
@@ -607,8 +608,8 @@ static struct omap_dss_device igep2_lcd70_device = {
 
 static struct omap_dss_device *igep2_dss_devices[] = {
 	&igep2_dvi_device,
-//	&igep2_lcd43_device,
-//	&igep2_lcd70_device,
+	//&igep2_lcd43_device,
+	//&igep2_lcd70_device,
 };
 
 static struct omap_dss_board_info igep2_dss_data = {
@@ -668,7 +669,7 @@ static void __init igep2_display_init(void)
 {
 	if (gpio_request(IGEP2_GPIO_DVI_PUP, "GPIO_DVI_PUP") &&
 	    gpio_direction_output(IGEP2_GPIO_DVI_PUP, 1))
-		pr_err("IGEP v2: Could not obtain gpio GPIO_DVI_PUP\n");
+		pr_err("IGEP2: Could not obtain gpio GPIO_DVI_PUP\n");
 }
 
 static struct platform_device *igep2_devices[] __initdata = {
@@ -735,6 +736,7 @@ static struct twl4030_platform_data igep2_twldata = {
 	.gpio		= &igep2_twl4030_gpio_pdata,
 	.keypad		= &igep2_keypad_pdata,
 	.vmmc1          = &igep2_vmmc1,
+	.vmmc2          = &igep2_vmmc2,
 	.vdac 		= &igep2_vdac,
 	.vpll2		= &igep2_vpll2,
 	.vio		= &igep2_vio,
@@ -876,13 +878,16 @@ static void __init igep2_init(void)
 {
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
 
+	platform_add_devices(igep2_devices, ARRAY_SIZE(igep2_devices));
+
 	/* Get IGEP2 hardware revision */
 	igep2_get_revision();
 
 	/* Register I2C busses and drivers */
 	igep2_i2c_init();
 
-	platform_add_devices(igep2_devices, ARRAY_SIZE(igep2_devices));
+	//platform_add_devices(igep2_devices, ARRAY_SIZE(igep2_devices));
+
 	omap_serial_init();
 	usb_musb_init(&musb_board_data);
 	usb_ehci_init(&ehci_pdata);
@@ -912,7 +917,7 @@ static void __init igep2_init(void)
 	//igep022_gpio_keys_init();
 }
 
-MACHINE_START(IGEP0020, "IGEP v2 board")
+MACHINE_START(IGEP0020, "IGEP2 board")
 	.boot_params	= 0x80000100,
 	.map_io		= omap3_map_io,
 	.reserve	= omap_reserve,
