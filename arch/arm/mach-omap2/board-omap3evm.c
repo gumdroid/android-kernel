@@ -22,6 +22,7 @@
 #include <linux/input.h>
 #ifdef CONFIG_MACH_FLASHBOARD
 #include <linux/gpio_keys.h>
+#include <linux/i2c/lis331dlh.h>
 #else
 #include <linux/input/matrix_keypad.h>
 #endif
@@ -1019,6 +1020,27 @@ static struct twl4030_platform_data omap3evm_twldata = {
 #endif
 };
 
+#ifdef CONFIG_MACH_FLASHBOARD
+
+struct lis331dlh_platform_data  lis331dlh_omap3evm_data  = {
+
+	.min_interval = 1,
+	.poll_interval = 200,
+
+	.g_range = LIS331DLH_G_8G,
+
+	.axis_map_x = 0,
+	.axis_map_y = 1,
+	.axis_map_z = 2,
+
+	.negate_x = 0,  
+	.negate_y = 0,  
+	.negate_z = 0,  
+
+};
+
+#endif
+
 static struct i2c_board_info __initdata omap3evm_i2c_boardinfo[] = {
 	{
 		I2C_BOARD_INFO("twl4030", 0x48),
@@ -1026,6 +1048,13 @@ static struct i2c_board_info __initdata omap3evm_i2c_boardinfo[] = {
 		.irq = INT_34XX_SYS_NIRQ,
 		.platform_data = &omap3evm_twldata,
 	},
+#ifdef CONFIG_MACH_FLASHBOARD
+        {
+                I2C_BOARD_INFO("lis331dlh", 0x18),
+                .platform_data = &lis331dlh_omap3evm_data,
+        },
+
+#endif
 };
 
 static int __init omap3_evm_i2c_init(void)
@@ -1331,6 +1360,9 @@ static struct omap_board_mux omap36x_board_mux[] __initdata = {
 	OMAP3_MUX(GPMC_NCS7, OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT), /* GPIO-58 */
 	/* Bluetooth power */
 	OMAP3_MUX(SDMMC2_DAT4, OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT), /* GPIO-136 */
+	/*accel*/
+	OMAP3_MUX(ETK_D12, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP), /* GPIO-26 */
+	OMAP3_MUX(GPMC_A9, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP), /* GPIO-42 */
 #endif
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };

@@ -464,4 +464,12 @@ config INPUT_ADXL34X_SPI
 	  To compile this driver as a module, choose M here: the
 	  module will be called adxl34x-spi.
 
+config INPUT_LIS331DLH
+        tristate "LIS331DLH Accelerometer"
+        depends on I2C && MACH_FLASHBOARD
+        help
+        If you say yes here you get support for the 
+        LIS331DLH accelerometer sensor
+
 endif
+
