@@ -471,5 +471,15 @@ config INPUT_LIS331DLH
         If you say yes here you get support for the 
         LIS331DLH accelerometer sensor
 
+config SENSORS_L3G4200DH
+	tristate "STMicroeletronics L3G4200DH three-axis angular rate sensor"
+	depends on I2C && INPUT && MACH_FLASHBOARD
+	select INPUT_POLLDEV
+	select NEW_LEDS
+	select LEDS_CLASS
+	default n
+	help
+	This driver provides support for the L3G4200DH gyroscope connected via I2C.
+
 endif
 

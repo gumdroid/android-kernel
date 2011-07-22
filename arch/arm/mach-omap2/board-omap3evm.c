@@ -23,6 +23,7 @@
 #ifdef CONFIG_MACH_FLASHBOARD
 #include <linux/gpio_keys.h>
 #include <linux/i2c/lis331dlh.h>
+#include <linux/i2c/l3g4200dh.h>
 #else
 #include <linux/input/matrix_keypad.h>
 #endif
@@ -1039,6 +1040,43 @@ struct lis331dlh_platform_data  lis331dlh_omap3evm_data  = {
 
 };
 
+int l3g4200dh_setup_resources (void  *unused)
+{
+        int ret;
+        int irq;
+
+        ret = gpio_request(L3G4200DH_IRQ_GPIO , "l3g4200dh irq");
+        if (ret < 0)
+                goto fail;
+
+        ret = gpio_direction_input(L3G4200DH_IRQ_GPIO);
+        if (ret < 0)
+                goto fail_irq;
+
+        irq = gpio_to_irq(L3G4200DH_IRQ_GPIO);
+        if (irq < 0)
+                goto fail_irq;
+
+        return 0;
+
+fail_irq:
+        gpio_free(L3G4200DH_IRQ_GPIO);
+fail:
+        printk(KERN_ERR "l3g4200dh initialisation failed\n");
+        return -1;
+}
+
+void l3g4200dh_release_resources (void  *unused)
+{
+        gpio_free(L3G4200DH_IRQ_GPIO);
+}
+
+struct l3g4200dh_platform_data  l3g4200dh_pdata = {
+
+        .setup_resources = l3g4200dh_setup_resources,
+        .release_resources = l3g4200dh_release_resources,
+};
+
 #endif
 
 static struct i2c_board_info __initdata omap3evm_i2c_boardinfo[] = {
@@ -1053,6 +1091,11 @@ static struct i2c_board_info __initdata omap3evm_i2c_boardinfo[] = {
                 I2C_BOARD_INFO("lis331dlh", 0x18),
                 .platform_data = &lis331dlh_omap3evm_data,
         },
+	{
+		I2C_BOARD_INFO("l3g4200dh_i2c", 0x68),
+		.platform_data = &l3g4200dh_pdata,
+		.irq = OMAP_GPIO_IRQ(L3G4200DH_IRQ_GPIO),
+	},
 
 #endif
 };
@@ -1363,6 +1406,8 @@ static struct omap_board_mux omap36x_board_mux[] __initdata = {
 	/*accel*/
 	OMAP3_MUX(ETK_D12, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP), /* GPIO-26 */
 	OMAP3_MUX(GPMC_A9, OMAP_MUX_MODE4 | OMAP_PIN_INPUT_PULLUP), /* GPIO-42 */
+	/*gyro */
+	OMAP3_MUX(GPMC_NCS4, OMAP_MUX_MODE4 | OMAP_PIN_INPUT), /* GPIO-55 */
 #endif
 	{ .reg_offset = OMAP_MUX_TERMINATOR },
 };
