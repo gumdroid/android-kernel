@@ -66,7 +66,16 @@ static char *usb_functions_adb[] = {
 	"adb",
 };
 
+static char *usb_functions_mass_storage[] = {
+	"usb_mass_storage",
+};
+static char *usb_functions_ums_adb[] = {
+	"usb_mass_storage",
+	"adb",
+};
+
 static char *usb_functions_all[] = {
+	"adb", "usb_mass_storage",
 	"adb",
 };
 
@@ -76,13 +85,38 @@ static struct android_usb_product usb_products[] = {
 		.num_functions  = ARRAY_SIZE(usb_functions_adb),
 		.functions      = usb_functions_adb,
 	},
+	{
+		.product_id	= GOOGLE_PRODUCT_ID,
+		.num_functions	= ARRAY_SIZE(usb_functions_mass_storage),
+		.functions	= usb_functions_mass_storage,
+	},
+	{
+		.product_id	= GOOGLE_PRODUCT_ID,
+		.num_functions	= ARRAY_SIZE(usb_functions_ums_adb),
+		.functions	= usb_functions_ums_adb,
+	},
 };
 
+static struct usb_mass_storage_platform_data mass_storage_pdata = {
+	.nluns		= 1,
+	.vendor		= "rowboat",
+	.product	= "rowboat gadget",
+	.release	= 0x100,
+};
+
+static struct platform_device usb_mass_storage_device = {
+	.name	= "usb_mass_storage",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &mass_storage_pdata,
+	},
+};
 
 static struct android_usb_platform_data android_usb_pdata = {
 	.vendor_id      = GOOGLE_VENDOR_ID,
 	.product_id     = GOOGLE_PRODUCT_ID,
 	.functions      = usb_functions_all,
+	.num_products	= ARRAY_SIZE(usb_products),
 	.products       = usb_products,
 	.version        = 0x0100,
 	.product_name   = "rowboat gadget",
@@ -300,6 +334,7 @@ static struct omap_board_mux board_mux[] __initdata = {
 
 static struct platform_device *am3517_crane_devices[] __initdata = {
 	&am3517_crane_dss_device,
+	&usb_mass_storage_device,
 };
 
 static void __init am3517_crane_init_irq(void)
