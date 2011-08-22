@@ -45,6 +45,9 @@
 #include <plat/gpmc.h>
 #include <mach/hardware.h>
 #include <plat/nand.h>
+#include <plat/display.h>
+#include <plat/omap-pm.h>
+
 #include <plat/usb.h>
 
 #include "mux.h"
@@ -71,6 +74,97 @@
 #include <plat/mcspi.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/ads7846.h>
+
+
+#include <linux/usb/otg.h>
+#include <linux/usb/android_composite.h>
+
+
+#ifdef CONFIG_USB_ANDROID
+
+#define GOOGLE_VENDOR_ID		0x18d1
+#define GOOGLE_PRODUCT_ID		0x9018
+#define GOOGLE_ADB_PRODUCT_ID		0x9015
+
+static char *usb_functions_adb[] = {
+	"adb",
+};
+
+static char *usb_functions_mass_storage[] = {
+	"usb_mass_storage",
+};
+
+static char *usb_functions_ums_adb[] = {
+	"usb_mass_storage",
+	"adb",
+};
+
+static struct android_usb_product usb_products[] = {
+	{
+		.product_id	= GOOGLE_PRODUCT_ID,
+		.num_functions	= ARRAY_SIZE(usb_functions_adb),
+		.functions	= usb_functions_adb,
+	},
+	{
+		.product_id	= GOOGLE_PRODUCT_ID,
+		.num_functions	= ARRAY_SIZE(usb_functions_mass_storage),
+		.functions	= usb_functions_mass_storage,
+	},
+	{
+		.product_id	= GOOGLE_PRODUCT_ID,
+		.num_functions	= ARRAY_SIZE(usb_functions_ums_adb),
+		.functions	= usb_functions_ums_adb,
+	},
+};
+
+static struct usb_mass_storage_platform_data mass_storage_pdata = {
+	.nluns		= 1,
+	.vendor		= "rowboat",
+	.product	= "rowboat gadget",
+	.release	= 0x100,
+};
+
+static struct platform_device usb_mass_storage_device = {
+	.name	= "usb_mass_storage",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &mass_storage_pdata,
+	},
+
+};
+
+static char *usb_functions_all[] = {
+	"adb", "usb_mass_storage",
+};
+
+static struct android_usb_platform_data android_usb_pdata = {
+	.vendor_id	= GOOGLE_VENDOR_ID,
+	.product_id	= GOOGLE_PRODUCT_ID,
+	.functions	= usb_functions_all,
+	.num_products	= ARRAY_SIZE(usb_products),
+	.products	= usb_products,
+	.version	= 0x0100,
+	.product_name	= "rowboat gadget",
+	.manufacturer_name	= "rowboat",
+	.serial_number	= "20100720",
+	.num_functions	= ARRAY_SIZE(usb_functions_all),
+};
+
+static struct platform_device androidusb_device = {
+	.name	= "android_usb",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &android_usb_pdata,
+	},
+};
+
+
+static void overo_android_gadget_init(void)
+{
+	platform_device_register(&androidusb_device);
+}
+
+#endif
 
 static struct omap2_mcspi_device_config ads7846_mcspi_config = {
 	.turbo_mode	= 0,
@@ -125,7 +219,6 @@ static inline void __init overo_ads7846_init(void) { return; }
 #endif
 
 #if defined(CONFIG_SMSC911X) || defined(CONFIG_SMSC911X_MODULE)
-
 #include <linux/smsc911x.h>
 
 static struct resource overo_smsc911x_resources[] = {
@@ -138,15 +231,6 @@ static struct resource overo_smsc911x_resources[] = {
 	},
 };
 
-static struct resource overo_smsc911x2_resources[] = {
-	{
-		.name	= "smsc911x2-memory",
-		.flags	= IORESOURCE_MEM,
-	},
-	{
-		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_LOWLEVEL,
-	},
-};
 
 static struct smsc911x_platform_config overo_smsc911x_config = {
 	.irq_polarity	= SMSC911X_IRQ_POLARITY_ACTIVE_LOW,
@@ -165,24 +249,13 @@ static struct platform_device overo_smsc911x_device = {
 	},
 };
 
-static struct platform_device overo_smsc911x2_device = {
-	.name		= "smsc911x",
-	.id		= 1,
-	.num_resources	= ARRAY_SIZE(overo_smsc911x2_resources),
-	.resource	= overo_smsc911x2_resources,
-	.dev		= {
-		.platform_data = &overo_smsc911x_config,
-	},
-};
-
 static struct platform_device *smsc911x_devices[] = {
 	&overo_smsc911x_device,
-	&overo_smsc911x2_device,
 };
 
 static inline void __init overo_init_smsc911x(void)
 {
-	unsigned long cs_mem_base, cs_mem_base2;
+	unsigned long cs_mem_base;
 
 	/* set up first smsc911x chip */
 
@@ -205,33 +278,158 @@ static inline void __init overo_init_smsc911x(void)
 	overo_smsc911x_resources[1].start = OMAP_GPIO_IRQ(OVERO_SMSC911X_GPIO);
 	overo_smsc911x_resources[1].end	  = 0;
 
-	/* set up second smsc911x chip */
-
-	if (gpmc_cs_request(OVERO_SMSC911X2_CS, SZ_16M, &cs_mem_base2) < 0) {
-		printk(KERN_ERR "Failed request for GPMC mem for smsc911x2\n");
-		return;
-	}
-
-	overo_smsc911x2_resources[0].start = cs_mem_base2 + 0x0;
-	overo_smsc911x2_resources[0].end   = cs_mem_base2 + 0xff;
-
-	if ((gpio_request(OVERO_SMSC911X2_GPIO, "SMSC911X2 IRQ") == 0) &&
-	    (gpio_direction_input(OVERO_SMSC911X2_GPIO) == 0)) {
-		gpio_export(OVERO_SMSC911X2_GPIO, 0);
-	} else {
-		printk(KERN_ERR "could not obtain gpio for SMSC911X2 IRQ\n");
-		return;
-	}
-
-	overo_smsc911x2_resources[1].start = OMAP_GPIO_IRQ(OVERO_SMSC911X2_GPIO);
-	overo_smsc911x2_resources[1].end   = 0;
-
 	platform_add_devices(smsc911x_devices, ARRAY_SIZE(smsc911x_devices));
 }
 
 #else
 static inline void __init overo_init_smsc911x(void) { return; }
 #endif
+
+
+static int lcd_enabled;
+static int dvi_enabled;
+
+#define OVERO_GPIO_LCD_EN 144
+#define OVERO_GPIO_LCD_BL 145
+
+static void __init overo_display_init(void)
+{
+	if ((gpio_request(OVERO_GPIO_LCD_EN, "OVERO_GPIO_LCD_EN") == 0) &&
+	    (gpio_direction_output(OVERO_GPIO_LCD_EN, 1) == 0))
+		gpio_export(OVERO_GPIO_LCD_EN, 0);
+	else
+		printk(KERN_ERR "could not obtain gpio for "
+					"OVERO_GPIO_LCD_EN\n");
+
+	if ((gpio_request(OVERO_GPIO_LCD_BL, "OVERO_GPIO_LCD_BL") == 0) &&
+	    (gpio_direction_output(OVERO_GPIO_LCD_BL, 1) == 0))
+		gpio_export(OVERO_GPIO_LCD_BL, 0);
+	else
+		printk(KERN_ERR "could not obtain gpio for "
+					"OVERO_GPIO_LCD_BL\n");
+}
+
+static int overo_panel_enable_dvi(struct omap_dss_device *dssdev)
+{
+	if (lcd_enabled) {
+		printk(KERN_ERR "cannot enable DVI, LCD is enabled\n");
+		return -EINVAL;
+	}
+	dvi_enabled = 1;
+
+	return 0;
+}
+
+static void overo_panel_disable_dvi(struct omap_dss_device *dssdev)
+{
+	dvi_enabled = 0;
+}
+
+static struct omap_dss_device overo_dvi_device = {
+	.type			= OMAP_DISPLAY_TYPE_DPI,
+	.name			= "dvi",
+	.driver_name		= "generic_panel",
+	.phy.dpi.data_lines	= 24,
+	.platform_enable	= overo_panel_enable_dvi,
+	.platform_disable	= overo_panel_disable_dvi,
+};
+
+static int overo_panel_enable_tv(struct omap_dss_device *dssdev)
+{
+#define ENABLE_VDAC_DEDICATED           0x03
+#define ENABLE_VDAC_DEV_GRP             0x20
+
+	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+			ENABLE_VDAC_DEDICATED,
+			TWL4030_VDAC_DEDICATED);
+	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER,
+			ENABLE_VDAC_DEV_GRP, TWL4030_VDAC_DEV_GRP);
+
+	return 0;
+}
+
+static void overo_panel_disable_tv(struct omap_dss_device *dssdev)
+{
+	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
+			TWL4030_VDAC_DEDICATED);
+	twl_i2c_write_u8(TWL4030_MODULE_PM_RECEIVER, 0x00,
+			TWL4030_VDAC_DEV_GRP);
+}
+
+static struct omap_dss_device overo_tv_device = {
+	.name = "tv",
+	.driver_name = "venc",
+	.type = OMAP_DISPLAY_TYPE_VENC,
+	.phy.venc.type = OMAP_DSS_VENC_TYPE_SVIDEO,
+	.platform_enable = overo_panel_enable_tv,
+	.platform_disable = overo_panel_disable_tv,
+};
+
+static int overo_panel_enable_lcd(struct omap_dss_device *dssdev)
+{
+	if (dvi_enabled) {
+		printk(KERN_ERR "cannot enable LCD, DVI is enabled\n");
+		return -EINVAL;
+	}
+
+	gpio_set_value(OVERO_GPIO_LCD_EN, 1);
+	gpio_set_value(OVERO_GPIO_LCD_BL, 1);
+	lcd_enabled = 1;
+	return 0;
+}
+
+static void overo_panel_disable_lcd(struct omap_dss_device *dssdev)
+{
+	gpio_set_value(OVERO_GPIO_LCD_EN, 0);
+	gpio_set_value(OVERO_GPIO_LCD_BL, 0);
+	lcd_enabled = 0;
+}
+#if defined(CONFIG_PANEL_SAMSUNG_LTE430WQ_F0C) || \
+	defined(CONFIG_PANEL_SAMSUNG_LTE430WQ_F0C_MODULE)
+static struct omap_dss_device overo_lcd43_device = {
+	.type			= OMAP_DISPLAY_TYPE_DPI,
+	.name			= "lcd43",
+	.driver_name		= "samsung_lte_panel",
+	.phy.dpi.data_lines	= 24,
+//	.panel.recommended_bpp	= 16,
+	.platform_enable	= overo_panel_enable_lcd,
+	.platform_disable	= overo_panel_disable_lcd,
+};
+#endif
+
+static struct omap_dss_device *overo_dss_devices[] = {
+	&overo_dvi_device,
+	&overo_tv_device,
+
+#if defined(CONFIG_PANEL_SAMSUNG_LTE430WQ_F0C) || \
+	defined(CONFIG_PANEL_SAMSUNG_LTE430WQ_F0C_MODULE)
+	&overo_lcd43_device,
+#endif
+};
+
+static struct omap_dss_board_info overo_dss_data = {
+	.num_devices	= ARRAY_SIZE(overo_dss_devices),
+	.devices	= overo_dss_devices,
+	.default_device	= &overo_dvi_device,
+};
+
+static struct platform_device overo_dss_device = {
+	.name          = "omapdss",
+	.id            = -1,
+	.dev            = {
+		.platform_data = &overo_dss_data,
+	},
+};
+
+static struct regulator_consumer_supply overo_vdda_dac_supply = {
+	.supply		= "vdda_dac",
+	.dev		= &overo_dss_device.dev,
+};
+
+static struct regulator_consumer_supply overo_vdds_dsi_supply = {
+	.supply		= "vdds_dsi",
+	.dev		= &overo_dss_device.dev,
+};
 
 static struct mtd_partition overo_nand_partitions[] = {
 	{
@@ -376,6 +574,8 @@ static struct twl4030_platform_data overo_twldata = {
 	.usb		= &overo_usb_data,
 	.codec		= &overo_codec_data,
 	.vmmc1		= &overo_vmmc1,
+//	.vdac		= &overo_vdac,
+//	.vpll2		= &overo_vpll2,
 };
 
 static struct i2c_board_info __initdata overo_i2c_boardinfo[] = {
@@ -396,17 +596,7 @@ static int __init overo_i2c_init(void)
 	return 0;
 }
 
-static struct platform_device overo_lcd_device = {
-	.name		= "overo_lcd",
-	.id		= -1,
-};
-
-static struct omap_lcd_config overo_lcd_config __initdata = {
-	.ctrl_name	= "internal",
-};
-
 static struct omap_board_config_kernel overo_config[] __initdata = {
-	{ OMAP_TAG_LCD,		&overo_lcd_config },
 };
 
 static void __init overo_init_irq(void)
@@ -421,7 +611,8 @@ static void __init overo_init_irq(void)
 }
 
 static struct platform_device *overo_devices[] __initdata = {
-	&overo_lcd_device,
+&overo_dss_device,
+&usb_mass_storage_device,
 };
 
 static const struct ehci_hcd_omap_platform_data ehci_pdata __initconst = {
@@ -451,6 +642,7 @@ static void __init overo_init(void)
 {
 	omap3_mux_init(board_mux, OMAP_PACKAGE_CBB);
 	overo_i2c_init();
+	overo_display_init();
 	platform_add_devices(overo_devices, ARRAY_SIZE(overo_devices));
 	omap_serial_init();
 	overo_flash_init();
@@ -458,6 +650,9 @@ static void __init overo_init(void)
 	usb_ehci_init(&ehci_pdata);
 	overo_ads7846_init();
 	overo_init_smsc911x();
+#ifdef CONFIG_USB_ANDROID
+	overo_android_gadget_init();
+#endif
 
 	/* Ensure SDRC pins are mux'd for self-refresh */
 	omap_mux_init_signal("sdrc_cke0", OMAP_PIN_OUTPUT);

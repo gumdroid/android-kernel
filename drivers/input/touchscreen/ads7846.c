@@ -143,6 +143,11 @@ struct ads7846 {
 	void			(*wait_for_sync)(void);
 };
 
+#ifdef CONFIG_MACH_OVERO
+#define OVERO_YMIN		0x0c8
+#define OVERO_YMAX		0xefd
+#endif
+
 #if defined(CONFIG_MACH_OMAP3EVM) && defined(CONFIG_MACH_FLASHBOARD)
 #define OMAP3EVM_XMIN		0x078
 #define OMAP3EVM_XMAX		0xF50
@@ -876,6 +881,12 @@ static void ads7846_report_state(struct ads7846 *ts)
 			((pdata->y_max * (y - OMAP3EVM_YMIN)) / (OMAP3EVM_YMAX - OMAP3EVM_YMIN));
 #endif
 #endif
+
+#ifdef CONFIG_MACH_OVERO
+		y = pdata->y_max -
+			((pdata->y_max * (y - OVERO_YMIN)) / (OVERO_YMAX - OVERO_YMIN));
+#endif
+
 		input_report_abs(input, ABS_X, x);
 		input_report_abs(input, ABS_Y, y);
 		input_report_abs(input, ABS_PRESSURE, ts->pressure_max - Rt);
