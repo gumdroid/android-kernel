@@ -842,6 +842,12 @@ static struct twl4030_madc_platform_data omap3evm_madc_data = {
 
 static struct twl4030_codec_audio_data omap3evm_audio_data = {
 	.audio_mclk = 26000000,
+	.digimic_delay = 1,
+	.ramp_delay_value = 1,
+	.offset_cncl_path = 1,
+	.check_defaults = false,
+	.reset_registers = false,
+	.reset_registers = false,
 };
 
 static struct twl4030_codec_data omap3evm_codec_data = {
