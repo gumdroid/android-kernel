@@ -58,6 +58,7 @@
 #include "common-board-devices.h"
 #include "prm-regbits-44xx.h"
 #include "prm44xx.h"
+#include "pm.h"
 
 #define GPIO_HUB_POWER		1
 #define GPIO_HUB_NRESET		62
@@ -66,6 +67,7 @@
 #define HDMI_GPIO_CT_CP_HPD     60
 #define HDMI_GPIO_HPD 63 /* Hot plug pin for HDMI */
 #define HDMI_GPIO_LS_OE 41 /* Level shifter for HDMI */
+#define TPS62361_GPIO   7 /* VCORE1 power control */
 
 
 #define PHYS_ADDR_SMC_SIZE	(SZ_1M * 3)
@@ -759,6 +761,7 @@ extern void __init omap4_panda_android_init(void);
 static void __init omap4_panda_init(void)
 {
 	int package = OMAP_PACKAGE_CBS;
+	int status;
 
 	omap_emif_setup_device_details(&emif_devices, &emif_devices);
 
@@ -790,6 +793,13 @@ static void __init omap4_panda_init(void)
 	omapfb_set_platform_data(&panda_fb_pdata);
 	omap4_panda_display_init();
 
+	if (cpu_is_omap446x()) {
+		/* Vsel0 = gpio, vsel1 = gnd */
+		status = omap_tps6236x_board_setup(true, TPS62361_GPIO, -1,
+					OMAP_PIN_OFF_OUTPUT_HIGH, -1);
+		if (status)
+			pr_err("TPS62361 initialization failed: %d\n", status);
+	}
 }
 
 static void __init omap4_panda_map_io(void)
