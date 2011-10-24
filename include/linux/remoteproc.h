@@ -283,6 +283,7 @@ struct rproc {
 	struct mutex secure_lock;
 	bool secure_mode;
 	bool secure_ok;
+	bool secure_reset;
 	bool halt_on_crash;
 	char *header;
 	int header_len;
