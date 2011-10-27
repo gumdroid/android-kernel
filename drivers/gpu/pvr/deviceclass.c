@@ -565,7 +565,7 @@ static PVRSRV_ERROR CloseDCDeviceCallBack(IMG_PVOID  pvParam,
 
 	if(psDCInfo->sSystemBuffer.sDeviceClassBuffer.ui32MemMapRefCount != 0)
 	{
-		PVR_DPF((PVR_DBG_MESSAGE,"CloseDCDeviceCallBack: system buffer (0x%p) still mapped (refcount = %d)",
+		PVR_DPF((PVR_DBG_ERROR,"CloseDCDeviceCallBack: system buffer (0x%p) still mapped (refcount = %d)",
 				&psDCInfo->sSystemBuffer.sDeviceClassBuffer,
 				psDCInfo->sSystemBuffer.sDeviceClassBuffer.ui32MemMapRefCount));
 #if 0
@@ -1518,8 +1518,6 @@ typedef struct _CALLBACK_DATA_
 {
 	IMG_PVOID	pvPrivData;
 	IMG_UINT32	ui32PrivDataLength;
-	IMG_PVOID	ppvMemInfos;
-	IMG_UINT32	ui32NumMemInfos;
 } CALLBACK_DATA;
 
 static IMG_VOID FreePrivateData(IMG_HANDLE hCallbackData)
@@ -1527,10 +1525,7 @@ static IMG_VOID FreePrivateData(IMG_HANDLE hCallbackData)
 	CALLBACK_DATA *psCallbackData = hCallbackData;
 
 	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, psCallbackData->ui32PrivDataLength,
-			  psCallbackData->pvPrivData, IMG_NULL);
-	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
-			  sizeof(IMG_VOID *) * psCallbackData->ui32NumMemInfos,
-			  psCallbackData->ppvMemInfos, IMG_NULL);
+				psCallbackData->pvPrivData, IMG_NULL);
 	OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(CALLBACK_DATA), hCallbackData, IMG_NULL);
 }
 
@@ -1550,11 +1545,10 @@ PVRSRV_ERROR PVRSRVSwapToDCBuffer2KM(IMG_HANDLE	hDeviceKM,
 	PVRSRV_DISPLAYCLASS_INFO *psDCInfo;
 	PVRSRV_DC_SWAPCHAIN *psSwapChain;
 	PVRSRV_ERROR eError = PVRSRV_OK;
-	CALLBACK_DATA *psCallbackData;
 	PVRSRV_QUEUE_INFO *psQueue;
 	PVRSRV_COMMAND *psCommand;
-	IMG_PVOID *ppvMemInfos;
 	SYS_DATA *psSysData;
+	CALLBACK_DATA *psCallbackData;
 
 	if(!hDeviceKM || !hSwapChain || !ppsMemInfos || !ppsSyncInfos || ui32NumMemSyncInfos < 1)
 	{
@@ -1582,28 +1576,8 @@ PVRSRV_ERROR PVRSRVSwapToDCBuffer2KM(IMG_HANDLE	hDeviceKM,
 	{
 		return eError;
 	}
-
 	psCallbackData->pvPrivData = pvPrivData;
 	psCallbackData->ui32PrivDataLength = ui32PrivDataLength;
-
-	
-	if(OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
-				  sizeof(IMG_VOID *) * ui32NumMemSyncInfos,
-				  (IMG_VOID **)&ppvMemInfos, IMG_NULL,
-				  "Swap Command Meminfos") != PVRSRV_OK)
-	{
-		PVR_DPF((PVR_DBG_ERROR,"PVRSRVSwapToDCBuffer2KM: Failed to allocate space for meminfo list"));
-		psCallbackData->ppvMemInfos = IMG_NULL;
-		goto Exit;
-	}
-
-	for(i = 0; i < ui32NumMemSyncInfos; i++)
-	{
-		ppvMemInfos[i] = ppsMemInfos[i];
-	}
-
-	psCallbackData->ppvMemInfos = ppvMemInfos;
-	psCallbackData->ui32NumMemInfos = ui32NumMemSyncInfos;
 
 	
 	psQueue = psSwapChain->psQueue;
@@ -1700,39 +1674,41 @@ PVRSRV_ERROR PVRSRVSwapToDCBuffer2KM(IMG_HANDLE	hDeviceKM,
 	psFlipCmd->pvPrivData = pvPrivData;
 	psFlipCmd->ui32PrivDataLength = ui32PrivDataLength;
 
-	psFlipCmd->ppvMemInfos = ppvMemInfos;
-	psFlipCmd->ui32NumMemInfos = ui32NumMemSyncInfos;
-
-	SysAcquireData(&psSysData);
-
 	
+	if(OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
+				  sizeof(IMG_VOID *) * ui32NumMemSyncInfos,
+				  (IMG_VOID **)&psFlipCmd->ppvMemInfos, IMG_NULL,
+				  "Swap Command Meminfos") != PVRSRV_OK)
 	{
-		if(psSysData->ePendingCacheOpType == PVRSRV_MISC_INFO_CPUCACHEOP_FLUSH)
-		{
-			OSFlushCPUCacheKM();
-		}
-		else if(psSysData->ePendingCacheOpType == PVRSRV_MISC_INFO_CPUCACHEOP_CLEAN)
-		{
-			OSCleanCPUCacheKM();
-		}
-
-		psSysData->ePendingCacheOpType = PVRSRV_MISC_INFO_CPUCACHEOP_NONE;
+		PVR_DPF((PVR_DBG_ERROR,"PVRSRVSwapToDCBuffer2KM: Failed to allocate space for meminfo list"));
+		goto Exit;
 	}
+
+	for(i = 0; i < ui32NumMemSyncInfos; i++)
+	{
+		psFlipCmd->ppvMemInfos[i] = ppsMemInfos[i];
+	}
+
+	psFlipCmd->ui32NumMemInfos = ui32NumMemSyncInfos;
 
 	
 	eError = PVRSRVSubmitCommandKM (psQueue, psCommand);
 	if (eError != PVRSRV_OK)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVSwapToDCBuffer2KM: Failed to submit command"));
+		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
+				  sizeof(IMG_VOID *) * ui32NumMemSyncInfos,
+				  (IMG_VOID *)psFlipCmd->ppvMemInfos,
+				  IMG_NULL);
 		goto Exit;
 	}
-
 	
 	psCallbackData = IMG_NULL;
 
 	
 
-	eError = OSScheduleMISR(psSysData);
+	SysAcquireData(&psSysData);
+    eError = OSScheduleMISR(psSysData);
 
 	if (eError != PVRSRV_OK)
 	{
@@ -1771,12 +1747,6 @@ PVRSRV_ERROR PVRSRVSwapToDCBuffer2KM(IMG_HANDLE	hDeviceKM,
 Exit:
 	if (psCallbackData)
 	{
-		if(psCallbackData->ppvMemInfos)
-		{
-			OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP,
-					  sizeof(IMG_VOID *) * psCallbackData->ui32NumMemInfos,
-					  psCallbackData->ppvMemInfos, IMG_NULL);
-		}
 		OSFreeMem(PVRSRV_OS_PAGEABLE_HEAP, sizeof(CALLBACK_DATA), psCallbackData, IMG_NULL);
 	}
 	if(eError == PVRSRV_ERROR_CANNOT_GET_QUEUE_SPACE)

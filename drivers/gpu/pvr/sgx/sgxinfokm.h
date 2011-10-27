@@ -94,7 +94,6 @@ typedef struct _PVRSRV_SGXDEV_INFO_
 	
 	IMG_UINT32				ui32CoreClockSpeed;
 	IMG_UINT32				ui32uKernelTimerClock;
-	IMG_BOOL				bSGXIdle;
 
 	PVRSRV_STUB_PBDESC		*psStubPBDescListKM;
 
