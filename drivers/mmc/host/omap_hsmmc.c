@@ -1494,6 +1494,9 @@ static void set_data_timeout(struct omap_hsmmc_host *host,
 			dto = 14;
 	}
 
+    // Use 14 by default because this seems to work will with all cards
+    dto = 14;
+
 	reg &= ~DTO_MASK;
 	reg |= dto << DTO_SHIFT;
 	OMAP_HSMMC_WRITE(host->base, SYSCTL, reg);
