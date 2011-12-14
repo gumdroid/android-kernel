@@ -443,6 +443,14 @@
 		#endif
 	#else
 	#if SGX_CORE_REV == 302
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+	#else
+	#if SGX_CORE_REV == 303
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
 	#else
 	#if SGX_CORE_REV == SGX_CORE_REV_HEAD
 		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
@@ -450,6 +458,7 @@
 		#endif
 	#else
 		#error "sgxerrata.h: SGX543 Core Revision unspecified"
+	#endif
 	#endif
 	#endif
 	#endif
@@ -557,10 +566,6 @@
 	#else
 	#if SGX_CORE_REV == 112
 		#define FIX_HW_BRN_31272
- 		#define FIX_HW_BRN_31780
-		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
-			#define FIX_HW_BRN_33657
-		#endif
 		#define FIX_HW_BRN_33920
 	#else
 	#if SGX_CORE_REV == 114
@@ -581,12 +586,22 @@
 			#define FIX_HW_BRN_33657
 		#endif
 	#else
+	#if SGX_CORE_REV == 116
+ 		#if defined(SGX_FEATURE_MP)
+ 			#define FIX_HW_BRN_31425
+ 		#endif
+		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
+			#define FIX_HW_BRN_33657
+		#endif
+		#define FIX_HW_BRN_33809
+	#else
 	#if SGX_CORE_REV == SGX_CORE_REV_HEAD
 		#if defined(SUPPORT_SGX_LOW_LATENCY_SCHEDULING) && defined(SGX_FEATURE_MP)
 			#define FIX_HW_BRN_33657
 		#endif
 	#else
 		#error "sgxerrata.h: SGX544 Core Revision unspecified"
+	#endif
 	#endif
 	#endif
 	#endif
