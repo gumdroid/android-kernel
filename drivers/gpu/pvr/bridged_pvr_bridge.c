@@ -645,6 +645,8 @@ PVRSRVAllocDeviceMemBW(IMG_UINT32 ui32BridgeID,
 			psMemInfo->psKernelSyncInfo->sWriteOpsCompleteDevVAddr;
 		psAllocDeviceMemOUT->sClientSyncInfo.sReadOpsCompleteDevVAddr =
 			psMemInfo->psKernelSyncInfo->sReadOpsCompleteDevVAddr;
+		psAllocDeviceMemOUT->sClientSyncInfo.sReadOps2CompleteDevVAddr =
+			psMemInfo->psKernelSyncInfo->sReadOps2CompleteDevVAddr;
 
 #if defined (SUPPORT_SID_INTERFACE)
 		if (psMemInfo->psKernelSyncInfo->psSyncDataMemInfoKM->sMemBlk.hOSMemHandle != IMG_NULL)
@@ -891,7 +893,7 @@ PVRSRVMapDeviceMemoryBW(IMG_UINT32 ui32BridgeID,
 		BM_XProcWorkaroundUnsetShareIndex(psSrcKernelMemInfo->sShareMemWorkaround.ui32ShareIndex);
 		if(psMapDevMemOUT->eError != PVRSRV_OK)
 		{
-			PVR_DPF((PVR_DBG_ERROR, "lakjgfgewjlrgebhe"));
+			PVR_DPF((PVR_DBG_ERROR, "PVRSRVMapDeviceMemoryBW: Failed to create allocation for cross-process memory map"));
 			return 0;
 		}
 
@@ -973,6 +975,8 @@ PVRSRVMapDeviceMemoryBW(IMG_UINT32 ui32BridgeID,
 			psDstKernelMemInfo->psKernelSyncInfo->sWriteOpsCompleteDevVAddr;
 		psMapDevMemOUT->sDstClientSyncInfo.sReadOpsCompleteDevVAddr =
 			psDstKernelMemInfo->psKernelSyncInfo->sReadOpsCompleteDevVAddr;
+		psMapDevMemOUT->sDstClientSyncInfo.sReadOps2CompleteDevVAddr =
+			psDstKernelMemInfo->psKernelSyncInfo->sReadOps2CompleteDevVAddr;
 
 #if defined (SUPPORT_SID_INTERFACE)
 		
@@ -1182,6 +1186,8 @@ PVRSRVMapDeviceClassMemoryBW(IMG_UINT32 ui32BridgeID,
 			psMemInfo->psKernelSyncInfo->sWriteOpsCompleteDevVAddr;
 		psMapDevClassMemOUT->sClientSyncInfo.sReadOpsCompleteDevVAddr =
 			psMemInfo->psKernelSyncInfo->sReadOpsCompleteDevVAddr;
+		psMapDevClassMemOUT->sClientSyncInfo.sReadOps2CompleteDevVAddr =
+			psMemInfo->psKernelSyncInfo->sReadOps2CompleteDevVAddr;
 
 #if defined (SUPPORT_SID_INTERFACE)
 		if (psMemInfo->psKernelSyncInfo->psSyncDataMemInfoKM->sMemBlk.hOSMemHandle != 0)
@@ -1397,6 +1403,8 @@ PVRSRVWrapExtMemoryBW(IMG_UINT32 ui32BridgeID,
 		psMemInfo->psKernelSyncInfo->sWriteOpsCompleteDevVAddr;
 	psWrapExtMemOUT->sClientSyncInfo.sReadOpsCompleteDevVAddr =
 		psMemInfo->psKernelSyncInfo->sReadOpsCompleteDevVAddr;
+	psWrapExtMemOUT->sClientSyncInfo.sReadOps2CompleteDevVAddr =
+		psMemInfo->psKernelSyncInfo->sReadOps2CompleteDevVAddr;
 
 #if defined (SUPPORT_SID_INTERFACE)
 	
@@ -2467,6 +2475,7 @@ PVRSRVEnumDCDimsBW(IMG_UINT32 ui32BridgeID,
 	return 0;
 }
 
+#if defined(SUPPORT_PVRSRV_GET_DC_SYSTEM_BUFFER)
 static IMG_INT
 PVRSRVGetDCSystemBufferBW(IMG_UINT32 ui32BridgeID,
 						  PVRSRV_BRIDGE_IN_GET_DISPCLASS_SYSBUFFER *psGetDispClassSysBufferIN,  
@@ -2511,6 +2520,7 @@ PVRSRVGetDCSystemBufferBW(IMG_UINT32 ui32BridgeID,
 
 	return 0;
 }
+#endif
 
 static IMG_INT
 PVRSRVGetDCInfoBW(IMG_UINT32 ui32BridgeID,
@@ -3049,8 +3059,6 @@ PVRSRVSwapToDCBuffer2BW(IMG_UINT32 ui32BridgeID,
 
 	if(psSwapDispClassBufferIN->ui32PrivDataLength > 0)
 	{
-		
-
 		if(OSAllocMem(PVRSRV_OS_PAGEABLE_HEAP,
 					  psSwapDispClassBufferIN->ui32PrivDataLength,
 					  (IMG_VOID **)&pvPrivData, IMG_NULL,
@@ -3517,6 +3525,10 @@ PVRSRVMapMemInfoMemBW(IMG_UINT32 ui32BridgeID,
 			psKernelMemInfo->psKernelSyncInfo->sWriteOpsCompleteDevVAddr;
 		psMapMemInfoMemOUT->sClientSyncInfo.sReadOpsCompleteDevVAddr =
 			psKernelMemInfo->psKernelSyncInfo->sReadOpsCompleteDevVAddr;
+		psMapMemInfoMemOUT->sClientSyncInfo.sReadOps2CompleteDevVAddr =
+			psKernelMemInfo->psKernelSyncInfo->sReadOps2CompleteDevVAddr;
+		psMapMemInfoMemOUT->sClientSyncInfo.sReadOps2CompleteDevVAddr =
+			psKernelMemInfo->psKernelSyncInfo->sReadOps2CompleteDevVAddr;
 
 #if defined (SUPPORT_SID_INTERFACE)
 	if (psKernelMemInfo->psKernelSyncInfo->psSyncDataMemInfoKM->sMemBlk.hOSMemHandle != IMG_NULL)
@@ -4684,7 +4696,11 @@ CommonBridgeInit(IMG_VOID)
 	SetDispatchTableEntry(PVRSRV_BRIDGE_CLOSE_DISPCLASS_DEVICE, PVRSRVCloseDCDeviceBW);
 	SetDispatchTableEntry(PVRSRV_BRIDGE_ENUM_DISPCLASS_FORMATS, PVRSRVEnumDCFormatsBW);
 	SetDispatchTableEntry(PVRSRV_BRIDGE_ENUM_DISPCLASS_DIMS, PVRSRVEnumDCDimsBW);
+#if defined(SUPPORT_PVRSRV_GET_DC_SYSTEM_BUFFER)
 	SetDispatchTableEntry(PVRSRV_BRIDGE_GET_DISPCLASS_SYSBUFFER, PVRSRVGetDCSystemBufferBW);
+#else
+	SetDispatchTableEntry(PVRSRV_BRIDGE_GET_DISPCLASS_SYSBUFFER, DummyBW);
+#endif
 	SetDispatchTableEntry(PVRSRV_BRIDGE_GET_DISPCLASS_INFO, PVRSRVGetDCInfoBW);
 	SetDispatchTableEntry(PVRSRV_BRIDGE_CREATE_DISPCLASS_SWAPCHAIN, PVRSRVCreateDCSwapChainBW);
 	SetDispatchTableEntry(PVRSRV_BRIDGE_DESTROY_DISPCLASS_SWAPCHAIN, PVRSRVDestroyDCSwapChainBW);

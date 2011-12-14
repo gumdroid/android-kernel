@@ -58,10 +58,7 @@ PVRSRVExportFDToIONHandle(int fd, struct ion_client **client)
 
 	psFile = fget(fd);
 	if(!psFile)
-	{
-		PVR_DPF((PVR_DBG_MESSAGE, "%s: Invalid fd=%d specified", __func__, fd));
 		goto err_unlock;
-	}
 
 	psPrivateData = psFile->private_data;
 	if(!psPrivateData)
@@ -83,9 +80,14 @@ PVRSRVExportFDToIONHandle(int fd, struct ion_client **client)
 	}
 
 	psLinuxMemArea = (LinuxMemArea *)psKernelMemInfo->sMemBlk.hOSMemHandle;
-
 	BUG_ON(psLinuxMemArea == IMG_NULL);
-	BUG_ON(psLinuxMemArea->eAreaType != LINUX_MEM_AREA_ION);
+
+	if(psLinuxMemArea->eAreaType != LINUX_MEM_AREA_ION)
+	{
+		PVR_DPF((PVR_DBG_ERROR, "%s: Valid handle, but not an ION buffer",
+								__func__));
+		goto err_fput;
+	}
 
 	psIONHandle = psLinuxMemArea->uData.sIONTilerAlloc.psIONHandle;
 	if(client)
