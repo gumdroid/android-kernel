@@ -297,7 +297,7 @@ int dsscomp_gralloc_queue(struct dsscomp_setup_dispc_data *d,
 		/* swap red & blue if requested */
 		if (d->mgrs[mgr_ix].swap_rb)
 			swap_rb_in_ovl_info(d->ovls + i);
-
+#if 0
 		/* copy prior overlay to avoid mapping layers twice to 1D */
 		if (oi->addressing == OMAP_DSS_BUFADDR_OVL_IX) {
 			unsigned int j = oi->ba;
@@ -309,7 +309,9 @@ int dsscomp_gralloc_queue(struct dsscomp_setup_dispc_data *d,
 			oi->ba = d->ovls[j].ba;
 			oi->uv = d->ovls[j].uv;
 			goto skip_map1d;
-		} else if (oi->addressing == OMAP_DSS_BUFADDR_FB) {
+		} else
+#endif
+		if (oi->addressing == OMAP_DSS_BUFADDR_FB) {
 			/* get fb */
 			int fb_ix = (oi->ba >> 28);
 			int fb_uv_ix = (oi->uv >> 28);
