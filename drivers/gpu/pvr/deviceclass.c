@@ -580,8 +580,7 @@ static PVRSRV_ERROR CloseDCDeviceCallBack(IMG_PVOID  pvParam,
 		
 		psDCInfo->psFuncTable->pfnCloseDCDevice(psDCInfo->hExtDevice);
 
-		PVRSRVKernelSyncInfoDecRef(psDCInfo->sSystemBuffer.sDeviceClassBuffer.psKernelSyncInfo, IMG_NULL);
-		if (psDCInfo->sSystemBuffer.sDeviceClassBuffer.psKernelSyncInfo->ui32RefCount == 0)
+		if (--psDCInfo->sSystemBuffer.sDeviceClassBuffer.psKernelSyncInfo->ui32RefCount == 0)
 		{
 			PVRSRVFreeSyncInfoKM(psDCInfo->sSystemBuffer.sDeviceClassBuffer.psKernelSyncInfo);
 		}
@@ -675,24 +674,11 @@ PVRSRV_ERROR PVRSRVOpenDCDeviceKM (PVRSRV_PER_PROCESS_DATA	*psPerProc,
 			return eError;
 		}
 
-		psDCPerContextInfo->psDCInfo = psDCInfo;
-		eError = PVRSRVGetDCSystemBufferKM(psDCPerContextInfo, IMG_NULL);
-		if(eError != PVRSRV_OK)
-		{
-			PVR_DPF((PVR_DBG_ERROR,"PVRSRVOpenDCDeviceKM: Failed to get system buffer"));
-			psDCInfo->ui32RefCount--;
-			PVRSRVFreeSyncInfoKM(psDCInfo->sSystemBuffer.sDeviceClassBuffer.psKernelSyncInfo);
-			return eError;
-		}
-
-		PVRSRVKernelSyncInfoIncRef(psDCInfo->sSystemBuffer.sDeviceClassBuffer.psKernelSyncInfo, IMG_NULL);
+		psDCInfo->sSystemBuffer.sDeviceClassBuffer.psKernelSyncInfo->ui32RefCount++;
 		psDCInfo->sSystemBuffer.sDeviceClassBuffer.ui32MemMapRefCount = 0;
 	}
-	else
-	{
-		psDCPerContextInfo->psDCInfo = psDCInfo;
-	}
 
+	psDCPerContextInfo->psDCInfo = psDCInfo;
 	psDCPerContextInfo->hResItem = ResManRegisterRes(psPerProc->hResManContext,
 													 RESMAN_TYPE_DISPLAYCLASS_DEVICE,
 													 psDCPerContextInfo,
@@ -756,7 +742,7 @@ PVRSRV_ERROR PVRSRVGetDCSystemBufferKM (IMG_HANDLE hDeviceKM,
 	PVRSRV_DISPLAYCLASS_INFO *psDCInfo;
 	IMG_HANDLE hExtBuffer;
 
-	if(!hDeviceKM)
+	if(!hDeviceKM || !phBuffer)
 	{
 		PVR_DPF((PVR_DBG_ERROR,"PVRSRVGetDCSystemBufferKM: Invalid parameters"));
 		return PVRSRV_ERROR_INVALID_PARAMS;
@@ -781,10 +767,7 @@ PVRSRV_ERROR PVRSRVGetDCSystemBufferKM (IMG_HANDLE hDeviceKM,
 	psDCInfo->sSystemBuffer.psDCInfo = psDCInfo;
 
 	
-	if (phBuffer)
-	{
-		*phBuffer = (IMG_HANDLE)&(psDCInfo->sSystemBuffer);
-	}
+	*phBuffer = (IMG_HANDLE)&(psDCInfo->sSystemBuffer);
 
 	return PVRSRV_OK;
 }
@@ -889,8 +872,7 @@ static PVRSRV_ERROR DestroyDCSwapChain(PVRSRV_DC_SWAPCHAIN *psSwapChain)
 	{
 		if(psSwapChain->asBuffer[i].sDeviceClassBuffer.psKernelSyncInfo)
 		{
-			PVRSRVKernelSyncInfoDecRef(psSwapChain->asBuffer[i].sDeviceClassBuffer.psKernelSyncInfo, IMG_NULL);
-			if (psSwapChain->asBuffer[i].sDeviceClassBuffer.psKernelSyncInfo->ui32RefCount == 0)
+			if (--psSwapChain->asBuffer[i].sDeviceClassBuffer.psKernelSyncInfo->ui32RefCount == 0)
 			{
 				PVRSRVFreeSyncInfoKM(psSwapChain->asBuffer[i].sDeviceClassBuffer.psKernelSyncInfo);
 			}
@@ -1097,7 +1079,7 @@ PVRSRV_ERROR PVRSRVCreateDCSwapChainKM (PVRSRV_PER_PROCESS_DATA	*psPerProc,
 			goto ErrorExit;
 		}
 
-		PVRSRVKernelSyncInfoIncRef(psSwapChain->asBuffer[i].sDeviceClassBuffer.psKernelSyncInfo, IMG_NULL);
+		psSwapChain->asBuffer[i].sDeviceClassBuffer.psKernelSyncInfo->ui32RefCount++;
 
 		
 		psSwapChain->asBuffer[i].sDeviceClassBuffer.pfnGetBufferAddr = psDCInfo->psFuncTable->pfnGetBufferAddr;
@@ -1197,8 +1179,7 @@ ErrorExit:
 	{
 		if(psSwapChain->asBuffer[i].sDeviceClassBuffer.psKernelSyncInfo)
 		{
-			PVRSRVKernelSyncInfoDecRef(psSwapChain->asBuffer[i].sDeviceClassBuffer.psKernelSyncInfo, IMG_NULL);
-			if (psSwapChain->asBuffer[i].sDeviceClassBuffer.psKernelSyncInfo->ui32RefCount == 0)
+			if (--psSwapChain->asBuffer[i].sDeviceClassBuffer.psKernelSyncInfo->ui32RefCount == 0)
 			{
 				PVRSRVFreeSyncInfoKM(psSwapChain->asBuffer[i].sDeviceClassBuffer.psKernelSyncInfo);
 			}
@@ -1501,22 +1482,6 @@ PVRSRV_ERROR PVRSRVSwapToDCBufferKM(IMG_HANDLE	hDeviceKM,
 	
 	psFlipCmd->ui32SwapInterval = ui32SwapInterval;
 
-	SysAcquireData(&psSysData);
-
-	
-	{
-		if(psSysData->ePendingCacheOpType == PVRSRV_MISC_INFO_CPUCACHEOP_FLUSH)
-		{
-			OSFlushCPUCacheKM();
-		}
-		else if(psSysData->ePendingCacheOpType == PVRSRV_MISC_INFO_CPUCACHEOP_CLEAN)
-		{
-			OSCleanCPUCacheKM();
-		}
-
-		psSysData->ePendingCacheOpType = PVRSRV_MISC_INFO_CPUCACHEOP_NONE;
-	}
-
 	
 	eError = PVRSRVSubmitCommandKM (psQueue, psCommand);
 	if (eError != PVRSRV_OK)
@@ -1527,6 +1492,7 @@ PVRSRV_ERROR PVRSRVSwapToDCBufferKM(IMG_HANDLE	hDeviceKM,
 
 	
 
+	SysAcquireData(&psSysData);
     eError = OSScheduleMISR(psSysData);
 
 	if (eError != PVRSRV_OK)
@@ -2046,12 +2012,6 @@ PVRSRVDCMemInfoGetByteSize(PVRSRV_KERNEL_MEM_INFO *psKernelMemInfo,
 	return PVRSRV_OK;
 }
 
-static IMG_BOOL
-PVRSRVDCMemInfoIsPhysContig(PVRSRV_KERNEL_MEM_INFO *psKernelMemInfo)
-{
-	return OSMemHandleIsPhysContig(psKernelMemInfo->sMemBlk.hOSMemHandle);
-}
-
 IMG_EXPORT
 IMG_BOOL PVRGetDisplayClassJTable(PVRSRV_DC_DISP2SRV_KMJTABLE *psJTable)
 {
@@ -2074,7 +2034,6 @@ IMG_BOOL PVRGetDisplayClassJTable(PVRSRV_DC_DISP2SRV_KMJTABLE *psJTable)
 	psJTable->pfnPVRSRVDCMemInfoGetCpuVAddr = &PVRSRVDCMemInfoGetCpuVAddr;
 	psJTable->pfnPVRSRVDCMemInfoGetCpuPAddr = &PVRSRVDCMemInfoGetCpuPAddr;
 	psJTable->pfnPVRSRVDCMemInfoGetByteSize = &PVRSRVDCMemInfoGetByteSize;
-	psJTable->pfnPVRSRVDCMemInfoIsPhysContig = &PVRSRVDCMemInfoIsPhysContig;
 	return IMG_TRUE;
 }
 
@@ -2136,8 +2095,7 @@ static PVRSRV_ERROR CloseBCDeviceCallBack(IMG_PVOID  pvParam,
 		{
 			if(psBCInfo->psBuffer[i].sDeviceClassBuffer.psKernelSyncInfo)
 			{
-				PVRSRVKernelSyncInfoDecRef(psBCInfo->psBuffer[i].sDeviceClassBuffer.psKernelSyncInfo, IMG_NULL);
-				if (psBCInfo->psBuffer[i].sDeviceClassBuffer.psKernelSyncInfo->ui32RefCount == 0)
+				if (--psBCInfo->psBuffer[i].sDeviceClassBuffer.psKernelSyncInfo->ui32RefCount == 0)
 				{
 					PVRSRVFreeSyncInfoKM(psBCInfo->psBuffer[i].sDeviceClassBuffer.psKernelSyncInfo);
 				}
@@ -2263,7 +2221,7 @@ PVRSRV_ERROR PVRSRVOpenBCDeviceKM (PVRSRV_PER_PROCESS_DATA	*psPerProc,
 				goto ErrorExit;
 			}
 
-			PVRSRVKernelSyncInfoIncRef(psBCInfo->psBuffer[i].sDeviceClassBuffer.psKernelSyncInfo, IMG_NULL);
+			psBCInfo->psBuffer[i].sDeviceClassBuffer.psKernelSyncInfo->ui32RefCount++;
 			
 			
 
@@ -2305,8 +2263,7 @@ ErrorExit:
 	{
 		if(psBCInfo->psBuffer[i].sDeviceClassBuffer.psKernelSyncInfo)
 		{
-			PVRSRVKernelSyncInfoDecRef(psBCInfo->psBuffer[i].sDeviceClassBuffer.psKernelSyncInfo, IMG_NULL);
-			if (psBCInfo->psBuffer[i].sDeviceClassBuffer.psKernelSyncInfo->ui32RefCount == 0)
+			if (--psBCInfo->psBuffer[i].sDeviceClassBuffer.psKernelSyncInfo->ui32RefCount == 0)
 			{
 				PVRSRVFreeSyncInfoKM(psBCInfo->psBuffer[i].sDeviceClassBuffer.psKernelSyncInfo);
 			}

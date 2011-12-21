@@ -46,7 +46,6 @@
 #include "perproc.h"
 #include "device.h"
 #include "buffer_manager.h"
-#include "refcount.h"
 
 #include "pdump_km.h"
 #include "syscommon.h"
@@ -900,7 +899,7 @@ PVRSRVMapDeviceMemoryBW(IMG_UINT32 ui32BridgeID,
 
 		if(psSrcKernelMemInfo->psKernelSyncInfo)
 		{
-			PVRSRVKernelSyncInfoIncRef(psSrcKernelMemInfo->psKernelSyncInfo, psSrcKernelMemInfo);
+			psSrcKernelMemInfo->psKernelSyncInfo->ui32RefCount++;
 		}
 
 		psDstKernelMemInfo->psKernelSyncInfo = psSrcKernelMemInfo->psKernelSyncInfo;

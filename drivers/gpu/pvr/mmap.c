@@ -54,12 +54,15 @@
 #include <drm/drmP.h>
 #endif
 
-#include "services_headers.h"
-
+#include "img_defs.h"
+#include "services.h"
+#include "servicesint.h"
 #include "pvrmmap.h"
 #include "mutils.h"
 #include "mmap.h"
 #include "mm.h"
+#include "pvr_debug.h"
+#include "osfunc.h"
 #include "proc.h"
 #include "mutex.h"
 #include "handle.h"
@@ -324,7 +327,7 @@ PVRMMapOSMemHandleToMMapData(PVRSRV_PER_PROCESS_DATA *psPerProc,
 	   
 	   *pui32MMapOffset = psOffsetStruct->ui32MMapOffset;
 	   *pui32UserVAddr = psOffsetStruct->ui32UserVAddr;
-	   PVRSRVOffsetStructIncRef(psOffsetStruct);
+	   psOffsetStruct->ui32RefCount++;
 
 	   eError = PVRSRV_OK;
 	   goto exit_unlock;
@@ -361,7 +364,7 @@ PVRMMapOSMemHandleToMMapData(PVRSRV_PER_PROCESS_DATA *psPerProc,
 
     psOffsetStruct->bOnMMapList = IMG_TRUE;
 
-    PVRSRVOffsetStructIncRef(psOffsetStruct);
+    psOffsetStruct->ui32RefCount++;
 
     eError = PVRSRV_OK;
 
@@ -424,7 +427,7 @@ PVRMMapReleaseMMapData(PVRSRV_PER_PROCESS_DATA *psPerProc,
 		goto exit_unlock;
 	    }
 
-	    PVRSRVOffsetStructDecRef(psOffsetStruct);
+	    psOffsetStruct->ui32RefCount--;
 
 	    *pbMUnmap = (IMG_BOOL)((psOffsetStruct->ui32RefCount == 0) && (psOffsetStruct->ui32UserVAddr != 0));
 
@@ -597,11 +600,9 @@ static IMG_VOID
 MMapVOpenNoLock(struct vm_area_struct* ps_vma)
 {
     PKV_OFFSET_STRUCT psOffsetStruct = (PKV_OFFSET_STRUCT)ps_vma->vm_private_data;
-
-    PVR_ASSERT(psOffsetStruct != IMG_NULL);
+    PVR_ASSERT(psOffsetStruct != IMG_NULL)
+    psOffsetStruct->ui32Mapped++;
     PVR_ASSERT(!psOffsetStruct->bOnMMapList);
-
-    PVRSRVOffsetStructIncMapped(psOffsetStruct);
 
     if (psOffsetStruct->ui32Mapped > 1)
     {
@@ -650,7 +651,7 @@ MMapVCloseNoLock(struct vm_area_struct* ps_vma)
 #endif
 
     PVR_ASSERT(!psOffsetStruct->bOnMMapList);
-    PVRSRVOffsetStructDecMapped(psOffsetStruct);
+    psOffsetStruct->ui32Mapped--;
     if (psOffsetStruct->ui32Mapped == 0)
     {
 	if (psOffsetStruct->ui32RefCount != 0)
@@ -1064,8 +1065,6 @@ PVRMMapRemoveRegisteredArea(LinuxMemArea *psLinuxMemArea)
 	if (psOffsetStruct->ui32Mapped != 0)
 	{
 	     PVR_DPF((PVR_DBG_ERROR, "%s: psOffsetStruct 0x%p for memory area 0x0x%p is still mapped; psOffsetStruct->ui32Mapped %u",  __FUNCTION__, psOffsetStruct, psLinuxMemArea, psOffsetStruct->ui32Mapped));
-		dump_stack();
-		PVRSRVDumpRefCountCCB();
 		eError = PVRSRV_ERROR_STILL_MAPPED;
 		goto exit_unlock;
 	}
