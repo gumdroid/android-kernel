@@ -52,7 +52,13 @@ struct omap2430_glue {
 #define glue_to_musb(g)		platform_get_drvdata(g->musb)
 
 static struct timer_list musb_idle_timer;
+#define  POLL_SECONDS    2
 
+static void omap2430_musb_id_change(struct musb *musb)
+{
+	if (is_otg_enabled(musb) && musb->xceiv->state == OTG_STATE_B_IDLE)
+		mod_timer(&musb_idle_timer, jiffies + POLL_SECONDS * HZ);
+}
 static void musb_do_idle(unsigned long _musb)
 {
 	struct musb	*musb = (void *)_musb;
@@ -71,12 +77,14 @@ static void musb_do_idle(unsigned long _musb)
 		musb_writeb(musb->mregs, MUSB_DEVCTL, devctl);
 
 		devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
-		if (devctl & MUSB_DEVCTL_BDEVICE) {
-			musb->xceiv->state = OTG_STATE_B_IDLE;
-			MUSB_DEV_MODE(musb);
-		} else {
+		if (devctl & MUSB_DEVCTL_HM) {
 			musb->xceiv->state = OTG_STATE_A_IDLE;
 			MUSB_HST_MODE(musb);
+		} else {
+			musb->xceiv->state = OTG_STATE_B_IDLE;
+			MUSB_DEV_MODE(musb);
+			mod_timer(&musb_idle_timer,
+					jiffies + POLL_SECONDS * HZ);
 		}
 		break;
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
@@ -100,11 +108,25 @@ static void musb_do_idle(unsigned long _musb)
 #ifdef CONFIG_USB_MUSB_HDRC_HCD
 	case OTG_STATE_A_HOST:
 		devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
-		if (devctl &  MUSB_DEVCTL_BDEVICE)
-			musb->xceiv->state = OTG_STATE_B_IDLE;
-		else
+		if (devctl &  MUSB_DEVCTL_HM)
 			musb->xceiv->state = OTG_STATE_A_WAIT_BCON;
+		else
+			musb->xceiv->state = OTG_STATE_B_IDLE;
 #endif
+	case OTG_STATE_B_IDLE:
+		if (!is_peripheral_enabled(musb))
+			break;
+
+		devctl = musb_readb(musb->mregs, MUSB_DEVCTL);
+		if (devctl & MUSB_DEVCTL_HM) {
+			musb->xceiv->state = OTG_STATE_A_HOST;
+		} else {
+			mod_timer(&musb_idle_timer,
+					jiffies + POLL_SECONDS * HZ);
+			musb_writeb(musb->mregs, MUSB_DEVCTL, devctl |
+				MUSB_DEVCTL_SESSION);
+		}
+		break;
 	default:
 		break;
 	}
@@ -406,6 +428,7 @@ static const struct musb_platform_ops omap2430_ops = {
 	.try_idle	= omap2430_musb_try_idle,
 
 	.set_vbus	= omap2430_musb_set_vbus,
+	.id_poll	= omap2430_musb_id_change,
 
 	.read_fifo	= musb_read_fifo,
 	.write_fifo	= musb_write_fifo,

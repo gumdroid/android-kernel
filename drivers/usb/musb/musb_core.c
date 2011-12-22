@@ -984,7 +984,6 @@ void musb_start(struct musb *musb)
 
 	musb->is_active = 0;
 	devctl = musb_readb(regs, MUSB_DEVCTL);
-	devctl &= ~MUSB_DEVCTL_SESSION;
 
 	if (is_otg_enabled(musb)) {
 		/* session started after:
@@ -1607,6 +1606,10 @@ static irqreturn_t generic_interrupt(int irq, void *__hci)
 
 	if (musb->int_usb || musb->int_tx || musb->int_rx)
 		retval = musb_interrupt(musb);
+
+	/* Poll for ID change */
+	if (musb->ops->id_poll)
+		musb->ops->id_poll(musb);
 
 	spin_unlock_irqrestore(&musb->lock, flags);
 

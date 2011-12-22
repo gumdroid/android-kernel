@@ -271,6 +271,8 @@ struct musb_platform_ops {
 
 	int	(*vbus_status)(struct musb *musb);
 	void	(*set_vbus)(struct musb *musb, int on);
+	void	(*id_poll)(struct musb *musb);
+
 	void (*read_fifo)(struct musb_hw_ep *hw_ep, u16 len, u8 *buf);
 	void (*write_fifo)(struct musb_hw_ep *hw_ep, u16 len, const u8 *buf);
 	struct dma_controller* (*dma_controller_create)(struct musb *,
