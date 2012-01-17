@@ -88,6 +88,7 @@ struct twl6040_data {
 	int power_mode_forced;
 	int headset_mode;
 	int hs_switch_dev;
+	int hs_forced_hs_state;
 	unsigned int clk_in;
 	unsigned int sysclk;
 	u16 hs_left_step;
@@ -849,14 +850,19 @@ static void twl6040_hs_jack_report(struct snd_soc_codec *codec,
 	struct twl6040_data *priv = snd_soc_codec_get_drvdata(codec);
 	int status, state = 0;
 
-	mutex_lock(&priv->mutex);
+	if (priv->hs_forced_hs_state) {
+		dev_dbg(codec->dev, "Forcing HS state to %i\n",
+			priv->hs_forced_hs_state);
+		state = priv->hs_forced_hs_state;
+	} else {
+		mutex_lock(&priv->mutex);
+		/* Sync status */
+		status = twl6040_read_reg_volatile(codec, TWL6040_REG_STATUS);
+		if (status & TWL6040_PLUGCOMP)
+			state = report;
 
-	/* Sync status */
-	status = twl6040_read_reg_volatile(codec, TWL6040_REG_STATUS);
-	if (status & TWL6040_PLUGCOMP)
-		state = report;
-
-	mutex_unlock(&priv->mutex);
+		mutex_unlock(&priv->mutex);
+	}
 
 	snd_soc_jack_report(jack, state, report);
 	if (priv->hs_switch_dev && &priv->hs_jack.sdev)
@@ -1707,6 +1713,9 @@ static int twl6040_probe(struct snd_soc_codec *codec)
 
 		if (pdata->hs_switch_dev)
 			priv->hs_switch_dev = pdata->hs_switch_dev;
+
+		if (pdata->hs_forced_hs_state)
+			priv->hs_forced_hs_state = pdata->hs_forced_hs_state;
 	}
 
 	if (pdata && pdata->ep_step)
@@ -1761,7 +1770,7 @@ static int twl6040_probe(struct snd_soc_codec *codec)
 			dev_err(codec->dev, "error registering switch device %d\n", ret);
 			goto reg_err;
 		}
-    }
+	}
 
 	ret = twl6040_request_irq(codec->control_data, TWL6040_IRQ_PLUG,
 				  twl6040_audio_handler, "twl6040_irq_plug",
