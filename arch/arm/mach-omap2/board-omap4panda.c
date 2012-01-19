@@ -31,6 +31,8 @@
 #include <linux/regulator/fixed.h>
 #include <linux/wl12xx.h>
 #include <linux/memblock.h>
+#include <linux/skbuff.h>
+#include <linux/ti_wilink_st.h>
 
 #include <mach/hardware.h>
 #include <mach/omap4-common.h>
@@ -68,6 +70,7 @@
 #define HDMI_GPIO_HPD 63 /* Hot plug pin for HDMI */
 #define HDMI_GPIO_LS_OE 41 /* Level shifter for HDMI */
 #define TPS62361_GPIO   7 /* VCORE1 power control */
+#define PANDA_BT_GPIO 46
 
 
 #define PHYS_ADDR_SMC_SIZE	(SZ_1M * 3)
@@ -77,15 +80,7 @@
 #define PHYS_ADDR_DUCATI_MEM	(PHYS_ADDR_SMC_MEM - PHYS_ADDR_DUCATI_SIZE - \
 				OMAP_ION_HEAP_SECURE_INPUT_SIZE)
 
-/* wl127x BT, FM, GPS connectivity chip */
-static int wl1271_gpios[] = {46, -1, -1};
-static struct platform_device wl1271_device = {
-	.name	= "kim",
-	.id	= -1,
-	.dev	= {
-		.platform_data	= &wl1271_gpios,
-	},
-};
+#define WILINK_UART_DEV_NAME	"/dev/ttyO1"
 
 static struct gpio_led gpio_leds[] = {
 	{
@@ -113,9 +108,48 @@ static struct platform_device leds_gpio = {
 	},
 };
 
+/* TODO: handle suspend/resume here.
+ * Upon every suspend, make sure the wilink chip is
+ * capable enough to wake-up the OMAP host.
+ */
+static int plat_wlink_kim_suspend(struct platform_device *pdev, pm_message_t
+		state)
+{
+	return 0;
+}
+
+static int plat_wlink_kim_resume(struct platform_device *pdev)
+{
+	return 0;
+}
+
+/* wl128x BT, FM, GPS connectivity chip */
+static struct ti_st_plat_data wilink_pdata = {
+	.nshutdown_gpio = PANDA_BT_GPIO,
+	.dev_name = WILINK_UART_DEV_NAME,
+	.flow_cntrl = 1,
+	.baud_rate = 3686400,
+	.suspend = plat_wlink_kim_suspend,
+	.resume = plat_wlink_kim_resume,
+};
+
+static struct platform_device btwilink_device = {
+	.name = "btwilink",
+	.id = -1,
+};
+
+/* wl127x BT, FM, GPS connectivity chip */
+static struct platform_device wl1271_device = {
+	.name	= "kim",
+	.id	= -1,
+	.dev.platform_data = &wilink_pdata,
+};
+
+
 static struct platform_device *panda_devices[] __initdata = {
 	&leds_gpio,
 	&wl1271_device,
+	&btwilink_device,
 };
 
 static void __init omap4_panda_init_early(void)
