@@ -862,11 +862,11 @@ static void twl6040_hs_jack_report(struct snd_soc_codec *codec,
 			state = report;
 
 		mutex_unlock(&priv->mutex);
+		if (priv->hs_switch_dev && &priv->hs_jack.sdev)
+			switch_set_state(&priv->hs_jack.sdev, !!state);
 	}
 
 	snd_soc_jack_report(jack, state, report);
-	if (priv->hs_switch_dev && &priv->hs_jack.sdev)
-		switch_set_state(&priv->hs_jack.sdev, !!state);
 }
 
 void twl6040_hs_jack_detect(struct snd_soc_codec *codec,
