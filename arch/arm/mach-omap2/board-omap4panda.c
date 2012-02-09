@@ -33,6 +33,7 @@
 #include <linux/memblock.h>
 #include <linux/skbuff.h>
 #include <linux/ti_wilink_st.h>
+#include <linux/platform_data/ram_console.h>
 
 #include <mach/hardware.h>
 #include <mach/omap4-common.h>
@@ -61,6 +62,10 @@
 #include "prm-regbits-44xx.h"
 #include "prm44xx.h"
 #include "pm.h"
+#include "resetreason.h"
+
+#define PANDA_RAMCONSOLE_START	(PLAT_PHYS_OFFSET + SZ_512M)
+#define PANDA_RAMCONSOLE_SIZE	SZ_2M
 
 #define GPIO_HUB_POWER		1
 #define GPIO_HUB_NRESET		62
@@ -793,6 +798,26 @@ static struct omapfb_platform_data panda_fb_pdata = {
 	},
 };
 
+static struct resource ramconsole_resources[] = {
+	{
+		.flags  = IORESOURCE_MEM,
+		.start	= PANDA_RAMCONSOLE_START,
+		.end	= PANDA_RAMCONSOLE_START + PANDA_RAMCONSOLE_SIZE - 1,
+	},
+};
+
+static struct ram_console_platform_data ramconsole_pdata;
+
+static struct platform_device ramconsole_device = {
+	.name           = "ram_console",
+	.id             = -1,
+	.num_resources  = ARRAY_SIZE(ramconsole_resources),
+	.resource       = ramconsole_resources,
+	.dev		= {
+		.platform_data = &ramconsole_pdata,
+	},
+};
+
 extern void __init omap4_panda_android_init(void);
 
 static void __init omap4_panda_init(void)
@@ -810,6 +835,8 @@ static void __init omap4_panda_init(void)
 		pr_err("error setting wl12xx data\n");
 
 	register_reboot_notifier(&panda_reboot_notifier);
+	ramconsole_pdata.bootinfo = omap4_get_resetreason();
+	platform_device_register(&ramconsole_device);
 	omap4_panda_i2c_init();
 	omap4_audio_conf();
 	platform_add_devices(panda_devices, ARRAY_SIZE(panda_devices));
@@ -843,6 +870,7 @@ static void __init omap4_panda_map_io(void)
 static void __init omap4_panda_reserve(void)
 {
 	/* do the static reservations first */
+	memblock_remove(PANDA_RAMCONSOLE_START, PANDA_RAMCONSOLE_SIZE);
 	memblock_remove(PHYS_ADDR_SMC_MEM, PHYS_ADDR_SMC_SIZE);
 	memblock_remove(PHYS_ADDR_DUCATI_MEM, PHYS_ADDR_DUCATI_SIZE);
 	/* ipu needs to recognize secure input buffer area as well */
