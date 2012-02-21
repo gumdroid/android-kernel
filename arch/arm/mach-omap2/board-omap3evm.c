@@ -46,6 +46,9 @@
 #include <linux/regulator/fixed.h>
 #endif
 
+#include <linux/skbuff.h>
+#include <linux/ti_wilink_st.h>
+
 #include <mach/hardware.h>
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
@@ -211,6 +214,80 @@ static void __init omap3_evm_get_revision(void)
 		omap3_evm_version = OMAP3EVM_BOARD_GEN_2;
 	}
 }
+
+#ifdef CONFIG_TI_ST
+/* TI-ST for WL1271 BT */
+
+/* Enabling GPIO for WL1271's Bluetooth, which is TWL4030's GPIO 13 */
+#define OMAP3EVM_WL1271_BT_EN_GPIO ( OMAP_MAX_GPIO_LINES + 13 )
+
+int plat_kim_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	/* TODO: wait for HCI-LL sleep */
+	return 0;
+}
+int plat_kim_resume(struct platform_device *pdev)
+{
+	return 0;
+}
+
+int plat_kim_chip_enable(struct kim_data_s *kim_data)
+{
+	printk(KERN_INFO"%s\n", __func__);
+
+	/* reset pulse to the BT controller */
+	usleep_range(150, 220);
+	gpio_set_value_cansleep(kim_data->nshutdown, 0);
+	usleep_range(150, 220);
+	gpio_set_value_cansleep(kim_data->nshutdown, 1);
+	usleep_range(150, 220);
+	gpio_set_value_cansleep(kim_data->nshutdown, 0);
+	usleep_range(150, 220);
+	gpio_set_value_cansleep(kim_data->nshutdown, 1);
+	usleep_range(1, 2);
+
+	return 0;
+}
+
+int plat_kim_chip_disable(struct kim_data_s *kim_data)
+{
+	printk(KERN_INFO"%s\n", __func__);
+
+	gpio_set_value_cansleep(kim_data->nshutdown, 0);
+
+	return 0;
+}
+
+struct ti_st_plat_data wilink_pdata = {
+	.nshutdown_gpio = OMAP3EVM_WL1271_BT_EN_GPIO,
+	.dev_name = "/dev/ttyO1",
+	.flow_cntrl = 1,
+	.baud_rate = 3000000,
+	.suspend = plat_kim_suspend,
+	.resume = plat_kim_resume,
+	.chip_enable = plat_kim_chip_enable,
+	.chip_disable = plat_kim_chip_disable,
+};
+
+static struct platform_device wl127x_device = {
+	.name		= "kim",
+	.id		= -1,
+	.dev.platform_data = &wilink_pdata,
+};
+
+static struct platform_device btwilink_device = {
+	.name = "btwilink",
+	.id = -1,
+};
+
+static inline void __init omap3evm_init_btwilink(void)
+{
+	pr_info("omap3evm: bt init\n");
+
+	platform_device_register(&wl127x_device);
+	platform_device_register(&btwilink_device);
+}
+#endif
 
 #if defined(CONFIG_SMSC911X) || defined(CONFIG_SMSC911X_MODULE)
 static struct resource omap3evm_smsc911x_resources[] = {
@@ -1638,6 +1715,9 @@ static void __init omap3_evm_init(void)
 	if (wl12xx_set_platform_data(&omap3evm_wlan_data))
 		pr_err("error setting wl12xx data\n");
 	platform_device_register(&omap3evm_wlan_regulator);
+#endif
+#ifdef CONFIG_TI_ST
+	omap3evm_init_btwilink();
 #endif
 #ifdef CONFIG_SND_SOC_WL1271BT
 	wl1271bt_clk_setup();
