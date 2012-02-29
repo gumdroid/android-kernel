@@ -218,8 +218,12 @@ static void __init omap3_evm_get_revision(void)
 #ifdef CONFIG_TI_ST
 /* TI-ST for WL1271 BT */
 
+#ifdef CONFIG_MACH_FLASHBOARD
+#define OMAP3EVM_WL1271_BT_EN_GPIO ( 136 )
+#else
 /* Enabling GPIO for WL1271's Bluetooth, which is TWL4030's GPIO 13 */
 #define OMAP3EVM_WL1271_BT_EN_GPIO ( OMAP_MAX_GPIO_LINES + 13 )
+#endif
 
 int plat_kim_suspend(struct platform_device *pdev, pm_message_t state)
 {
@@ -260,7 +264,11 @@ int plat_kim_chip_disable(struct kim_data_s *kim_data)
 
 struct ti_st_plat_data wilink_pdata = {
 	.nshutdown_gpio = OMAP3EVM_WL1271_BT_EN_GPIO,
+#ifdef CONFIG_MACH_FLASHBOARD
+	.dev_name = "/dev/ttyO0",
+#else
 	.dev_name = "/dev/ttyO1",
+#endif
 	.flow_cntrl = 1,
 	.baud_rate = 3000000,
 	.suspend = plat_kim_suspend,
