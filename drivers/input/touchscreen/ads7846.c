@@ -822,6 +822,9 @@ static void ads7846_report_state(struct ads7846 *ts)
 		Rt *= ts->x_plate_ohms;
 		Rt /= z1;
 		Rt = (Rt + 2047) >> 12;
+    } else if (likely(x)) {
+        Rt = ts->pressure_max / 2;
+        packet->tc.ignore = false;
 	} else {
 		Rt = 0;
 	}
