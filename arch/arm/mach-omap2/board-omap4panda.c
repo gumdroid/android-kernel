@@ -20,9 +20,11 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/clk.h>
+#include <linux/input.h>
 #include <linux/io.h>
 #include <linux/leds.h>
 #include <linux/gpio.h>
+#include <linux/gpio_keys.h>
 #include <linux/omapfb.h>
 #include <linux/reboot.h>
 #include <linux/usb/otg.h>
@@ -113,6 +115,31 @@ static struct platform_device leds_gpio = {
 	},
 };
 
+/* GPIO_KEY for the panda */
+static struct gpio_keys_button panda_gpio_keys_buttons[] = {
+	[0] = {
+		.code			= KEY_HOME,
+		.gpio			= 113,
+		.desc			= "user_button",
+		.active_low		= 1,
+		.debounce_interval	= 5,
+	},
+};
+
+static struct gpio_keys_platform_data panda_gpio_keys = {
+	.buttons		= panda_gpio_keys_buttons,
+	.nbuttons		= ARRAY_SIZE(panda_gpio_keys_buttons),
+	.rep			= 0,
+};
+
+static struct platform_device panda_gpio_keys_device = {
+	.name		= "gpio-keys",
+	.id		= -1,
+	.dev		= {
+		.platform_data	= &panda_gpio_keys,
+	},
+};
+
 /* TODO: handle suspend/resume here.
  * Upon every suspend, make sure the wilink chip is
  * capable enough to wake-up the OMAP host.
@@ -155,6 +182,7 @@ static struct platform_device *panda_devices[] __initdata = {
 	&leds_gpio,
 	&wl1271_device,
 	&btwilink_device,
+	&panda_gpio_keys_device,
 };
 
 static void __init omap4_panda_init_early(void)
@@ -839,6 +867,10 @@ static void __init omap4_panda_init(void)
 	platform_device_register(&ramconsole_device);
 	omap4_panda_i2c_init();
 	omap4_audio_conf();
+
+	if (cpu_is_omap4430())
+		panda_gpio_keys_buttons[0].gpio = 121;
+
 	platform_add_devices(panda_devices, ARRAY_SIZE(panda_devices));
 	platform_device_register(&omap_vwlan_device);
 	board_serial_init();
