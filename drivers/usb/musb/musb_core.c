@@ -2365,14 +2365,15 @@ void musb_save_context(struct musb *musb)
 
 	for (i = 0; i < musb->config->num_eps; ++i) {
 		epio = musb->endpoints[i].regs;
+		musb_writeb(musb_base, MUSB_INDEX, i);
 		musb->context.index_regs[i].txmaxp =
-			musb_readw(epio, MUSB_TXMAXP);
+			musb_readw(musb_base, 0x10 + MUSB_TXMAXP);
 		musb->context.index_regs[i].txcsr =
-			musb_readw(epio, MUSB_TXCSR);
+			musb_readw(musb_base, 0x10 + MUSB_TXCSR);
 		musb->context.index_regs[i].rxmaxp =
-			musb_readw(epio, MUSB_RXMAXP);
+			musb_readw(musb_base, 0x10 + MUSB_RXMAXP);
 		musb->context.index_regs[i].rxcsr =
-			musb_readw(epio, MUSB_RXCSR);
+			musb_readw(musb_base, 0x10 + MUSB_RXCSR);
 
 		if (musb->dyn_fifo) {
 			musb->context.index_regs[i].txfifoadd =
@@ -2433,13 +2434,14 @@ void musb_restore_context(struct musb *musb)
 
 	for (i = 0; i < musb->config->num_eps; ++i) {
 		epio = musb->endpoints[i].regs;
-		musb_writew(epio, MUSB_TXMAXP,
+		musb_writeb(musb_base, MUSB_INDEX, i);
+		musb_writew(musb_base, 0x10 + MUSB_TXMAXP,
 			musb->context.index_regs[i].txmaxp);
-		musb_writew(epio, MUSB_TXCSR,
+		musb_writew(musb_base, 0x10 + MUSB_TXCSR,
 			musb->context.index_regs[i].txcsr);
-		musb_writew(epio, MUSB_RXMAXP,
+		musb_writew(musb_base, 0x10 + MUSB_RXMAXP,
 			musb->context.index_regs[i].rxmaxp);
-		musb_writew(epio, MUSB_RXCSR,
+		musb_writew(musb_base, 0x10 + MUSB_RXCSR,
 			musb->context.index_regs[i].rxcsr);
 
 		if (musb->dyn_fifo) {
