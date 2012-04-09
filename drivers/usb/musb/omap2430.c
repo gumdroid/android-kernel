@@ -604,8 +604,8 @@ static int omap2430_resume(struct device *dev)
 	}
 
 	musb_clock_on = 1;
-	omap2430_low_level_init(musb);
 	omap2430_restore_context(musb);
+	omap2430_low_level_init(musb);
 	musb_restore_context(musb);
 	otg_set_suspend(musb->xceiv, 0);
 
