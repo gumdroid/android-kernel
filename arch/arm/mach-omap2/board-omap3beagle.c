@@ -130,7 +130,7 @@ static struct platform_device androidusb_device = {
 	},
 };
 
-static void omap3evm_android_gadget_init(void)
+static void omap3beagle_android_gadget_init(void)
 {
 	platform_device_register(&androidusb_device);
 }
@@ -758,7 +758,7 @@ static void __init omap3_beagle_init(void)
 
 	beagle_display_init();
 #ifdef CONFIG_USB_ANDROID
-	omap3evm_android_gadget_init();
+	omap3beagle_android_gadget_init();
 #endif
 }
 
