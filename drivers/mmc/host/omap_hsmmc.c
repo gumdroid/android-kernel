@@ -2224,10 +2224,9 @@ static int __init omap_hsmmc_probe(struct platform_device *pdev)
 
 	if (mmc_slot(host).nonremovable)
 		mmc->caps |= MMC_CAP_NONREMOVABLE;
-/*
-	Temporarily disable host can keep power capability to disable wowlan
+
 	mmc->pm_caps |= MMC_PM_KEEP_POWER;
-*/
+
 	omap_hsmmc_conf_bus_power(host);
 
 	res = platform_get_resource(pdev, IORESOURCE_DMA, 0);
