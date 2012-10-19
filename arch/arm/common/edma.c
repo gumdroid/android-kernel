@@ -1597,7 +1597,7 @@ fail1:
 }
 
 #ifdef CONFIG_PM
-static int edma3_suspend(struct platform_device *pdev, pm_message_t state)
+static int edma3_suspend(struct device *dev)
 {
 	int i, j;
 
@@ -1655,16 +1655,16 @@ static int edma3_suspend(struct platform_device *pdev, pm_message_t state)
 		}
 	}
 
-	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_put_sync(dev);
 
 	return 0;
 }
 
-static int edma3_resume(struct platform_device *pdev)
+static int edma3_resume(struct device *dev)
 {
 	int i, j;
 
-	pm_runtime_get_sync(&pdev->dev);
+	pm_runtime_get_sync(dev);
 
 	for (i = 0; i < arch_num_cc; i++) {
 
@@ -1728,10 +1728,17 @@ static int edma3_resume(struct platform_device *pdev)
 #define edma3_resume		NULL
 #endif
 
+static const struct dev_pm_ops omap_edma_pm_ops = {
+	.suspend_noirq = edma3_suspend,
+	.resume_noirq = edma3_resume,
+};
+
+
 static struct platform_driver edma_driver = {
-	.driver.name	= "edma",
-	.suspend	= edma3_suspend,
-	.resume		= edma3_resume,
+	.driver		= {
+		.name	= "edma",
+		.pm	= &omap_edma_pm_ops,
+	},
 };
 
 static int __init edma_init(void)
