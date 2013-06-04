@@ -237,13 +237,9 @@
 #define HIGH_PERF_SQ			(1 << 3)
 #define CK32K_LOWPWR_EN			(1 << 7)
 
-<<<<<<< HEAD
-/* for pm_power_off */
 #define PWR_P1_SW_EVENTS	0x10
 #define PWR_DEVOFF		(1 << 0)
 
-=======
->>>>>>> c30540d... mfd: twl: define all feature flags in one place.
 /*----------------------------------------------------------------------*/
 
 /* is driver active, bound to a chip? */
