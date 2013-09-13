@@ -355,6 +355,11 @@ config MACH_AM335XIAEVM
 	depends on SOC_OMAPAM33XX
 	default y
 
+config MACH_PEPPER
+	bool "Gumstix Pepper board"
+	depends on SOC_OMAPAM33XX
+	default y
+
 config MACH_OMAP_4430SDP
 	bool "OMAP 4430 SDP board"
 	default y
