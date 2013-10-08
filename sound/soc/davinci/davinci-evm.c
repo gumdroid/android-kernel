@@ -67,6 +67,9 @@ static int evm_hw_params(struct snd_pcm_substream *substream,
 #endif
 			sysclk = 12000000;
 
+	else if (machine_is_pepper()) {
+		sysclk = 12000000;
+	}
 	else
 		return -EINVAL;
 
@@ -374,6 +377,17 @@ static struct snd_soc_dai_link am335x_evm_sk_dai = {
 	.ops = &evm_ops,
 };
 
+static struct snd_soc_dai_link am335x_pepper_dai = {
+	.name = "TLV320AIC3X",
+	.stream_name = "AIC3X",
+	.cpu_dai_name = "davinci-mcasp.0",
+	.codec_dai_name = "tlv320aic3x-hifi",
+	.codec_name = "tlv320aic3x-codec.1-001b",
+	.platform_name = "davinci-pcm-audio",
+	.init = evm_aic3x_init,
+	.ops = &evm_ops,
+};
+
 /* davinci dm6446 evm audio machine driver */
 static struct snd_soc_card dm6446_snd_soc_card_evm = {
 	.name = "DaVinci DM6446 EVM",
@@ -432,6 +446,12 @@ static struct snd_soc_card am335x_evm_sk_snd_soc_card = {
 	.num_links = 1,
 };
 
+static struct snd_soc_card am335x_pepper_snd_soc_card = {
+	.name = "AM335X Pepper",
+	.dai_link = &am335x_pepper_dai,
+	.num_links = 1,
+};
+
 static struct platform_device *evm_snd_device;
 
 static int __init evm_init(void)
@@ -466,6 +486,9 @@ static int __init evm_init(void)
 		else if (am335x_evm_get_id() == BEAGLE_BONE_BLACK)
 			evm_snd_dev_data = &am335x_bone_snd_soc_card;
 #endif
+		index = 0;
+	} else if (machine_is_pepper()) {
+		evm_snd_dev_data = &am335x_pepper_snd_soc_card;
 		index = 0;
 	} else
 		return -EINVAL;

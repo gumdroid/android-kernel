@@ -56,6 +56,8 @@
 #include <plat/mmc.h>
 #include <plat/emif.h>
 
+#include <sound/tlv320aic3x.h>
+
 #include "cpuidle33xx.h"
 #include "mux.h"
 #include "devices.h"
@@ -271,24 +273,24 @@ static struct snd_platform_data pepper_snd_data = {
 	.serial_dir	= pepper_iis_serializer_direction,
 	.asp_chan_q	= EVENTQ_2,
 	.version	= MCASP_VERSION_3,
-	.txnumevt	= 32,
-	.rxnumevt	= 32,
+	.txnumevt	= 1,
+	.rxnumevt	= 1,
 	.get_context_loss_count = omap_pm_get_dev_context_loss_count,
 };
 
 /* Audio Pin Mux */
 static struct pinmux_config mcasp0_pin_mux[] = {
 	{"mcasp0_fsx.mcasp0_fsx",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
-	{"mcasp0_aclkr.mcasp0_aclkr",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
-	{"mcasp0_ahclkr.mcasp0_ahclkr",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
-	{"mcasp0_ahclkx.mcasp0_ahclkx",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
 	{"mcasp0_aclkx.mcasp0_aclkx",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
-	{"mcasp0_fsr.mcasp0_fsr",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
 	{"mcasp0_axr0.mcasp0_axr0",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
 	{"mcasp0_axr1.mcasp0_axr1",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLDOWN},
 	/* Audio nReset */
 	{"gpmc_a0.gpio1_16",		OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT_PULLUP},
 	{NULL, 0},
+};
+
+static struct aic3x_pdata pepper_aic3x_data __initdata = {
+	.gpio_reset = GPIO_TO_PIN(1, 16),
 };
 
 static void __init pepper_audio_init(void)
@@ -693,6 +695,9 @@ static struct regulator_consumer_supply tps65217_dcdc1_consumers[] = {
 	{
 		.supply = "ddr2",
 	},
+	{
+		.supply = "DVDD",
+	},
 };
 
 /* Roughly 1.1V */
@@ -730,6 +735,15 @@ static struct regulator_consumer_supply tps65217_ldo3_consumers[] = {
 	},
 	{
 		.supply = "vdda_usb0_3p3v",
+	},
+	{
+		.supply = "AVDD",
+	},
+	{
+		.supply = "IOVDD",
+	},
+	{
+		.supply = "DRVDD",
 	},
 };
 
@@ -888,6 +902,7 @@ static struct i2c_board_info pepper_i2c0_boardinfo[] = {
 	},
 	{
 		I2C_BOARD_INFO("tlv320aic3x", 0x1b),
+		.platform_data = &pepper_aic3x_data,
 	},
 	{
 		I2C_BOARD_INFO("lis331dlh", 0x1d),
