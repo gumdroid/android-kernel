@@ -134,7 +134,7 @@ static void pepper_panel_power_ctrl(int val)
 struct da8xx_lcdc_platform_data samsung43_pdata = {
 	.manu_name		= "Samsung",
 	.controller_data	= &lcd_cfg,
-	.type			= "Sharp_LK043T1DG01",
+	.type			= "Samsung_LMS430",
 	.get_context_loss_count	= omap_pm_get_dev_context_loss_count,
 	.panel_power_ctrl       = pepper_panel_power_ctrl,
 };
@@ -204,7 +204,7 @@ static void pepper_lcd_init(void)
 	int err;
 
 	setup_pin_mux(lcdc_pin_mux);
-	if (conf_disp_pll(300000000)) {
+    if (conf_disp_pll(18400000)) {
 		pr_info("Failed to configure display PLL\n");
 		return;
 	}
