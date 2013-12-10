@@ -16,6 +16,7 @@
 #include <linux/skbuff.h>
 #include <linux/spinlock.h>
 #include <asm/atomic.h>
+#include <linux/module.h>
 
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter/xt_quota2.h>
