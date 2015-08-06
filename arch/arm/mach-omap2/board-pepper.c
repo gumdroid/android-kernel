@@ -28,6 +28,7 @@
 #include <linux/export.h>
 #include <linux/mfd/tps65217.h>
 #include <linux/input/ti_tsc.h>
+#include <linux/input/edt-ft5x06.h>
 #include <linux/platform_data/ti_adc.h>
 #include <linux/mfd/ti_tscadc.h>
 #include <linux/reboot.h>
@@ -36,6 +37,7 @@
 #include <linux/opp.h>
 #include <linux/lis3lv02d.h>
 #include <linux/regulator/fixed.h>
+#include <linux/i2c/at24.h>
 
 #include <video/da8xx-fb.h>
 
@@ -210,7 +212,7 @@ static void pepper_lcd_init(void)
 		return;
 	}
 
-	if (am33xx_register_lcdc(&samsung43_pdata)) {
+	if (am33xx_register_lcdc(&newhaven43_pdata)) {
 		pr_info("Failed to register LCD display\n");
 		return;
 	}
@@ -224,29 +226,27 @@ static void pepper_lcd_init(void)
 	gpio_set_value(GPIO_LCD_ENABLE, 1);
 }
 
-/* Touchscreen & ADC  controller */
-static struct tsc_data pepper_touchscreen_data  = {
-	.wires			= 4,
-        .x = {
-                .min = 0xCB,
-                .max = 0xF9B,
-                .inverted = 0,
-        },
-        .y = {
-                .min = 0xC8,
-                .max = 0xE93,
-                .inverted = 1,
-        },
-	.x_plate_resistance	= 200,
-	.steps_to_configure	= 5,
+/* Cap Touch--TODO */
+// i2c1
+// wake = gpio0_5
+// irq = gpio0_20
+static struct pinmux_config captouch_pin_mux[] = {
+	{"spi0_cs0.gpio0_5",		OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // wake
+	{"xdma_event_intr1.gpio0_20",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},  // irq
+	{NULL, 0},
 };
 
+static struct edt_ft5x06_platform_data pepper_captouch_data = {
+	.irq_pin = GPIO_TO_PIN(0, 20),
+	.reset_pin = GPIO_TO_PIN(0, 5),
+};
+
+/* ADC controller */
 static struct adc_data pepper_adc_data = {
-	.adc_channels = 4,
+	.adc_channels = 8,
 };
 
 static struct mfd_tscadc_board tscadc = {
-        .tsc_init = &pepper_touchscreen_data,
         .adc_init = &pepper_adc_data,
 };
 
@@ -602,7 +602,7 @@ void __iomem * __init pepper_get_mem_ctlr(void)
 	pepper_emif_base = ioremap(AM33XX_EMIF0_BASE, SZ_32K);
 
 	if (!pepper_emif_base)
-		pr_warning("%s: Unable to map DDR2 controller",	__func__);
+		pr_warning("%s: Unable to map DDR3 controller",	__func__);
 
 	return pepper_emif_base;
 }
@@ -657,7 +657,7 @@ static void __init am33xx_cpuidle_init(void)
 static struct omap_board_config_kernel pepper_config[] __initdata = {
 };
 
-/* Configure TPS65217B PMIC */
+/* Configure TPS65217D PMIC */
 /* 1.8V */
 static struct regulator_consumer_supply tps65217_dcdc1_consumers[] = {
 	{
@@ -856,27 +856,19 @@ static struct tps65217_board pepper_tps65217_info = {
 	.status_off		= true,
 };
 
-/* Setup LIS33DE Accelerometer */
-static struct lis3lv02d_platform_data accel_pdata = {
-	.wakeup_flags = LIS3_WAKEUP_X_LO | LIS3_WAKEUP_X_HI | LIS3_WAKEUP_Y_LO | LIS3_WAKEUP_Y_HI | LIS3_WAKEUP_Z_LO | LIS3_WAKEUP_Z_HI,
-	.irq_cfg = LIS3_IRQ1_FF_WU_1,
-	.g_range = 2,
-	/* setup landscape convention */
-	.axis_x = 1,
-	.axis_y = 0,
-	/* 1 LSB = 4.6; min = 3LSB, max = 32LSB */ 
-	.st_min_limits[0] = -92,
-	.st_min_limits[1] = 14,
-	.st_min_limits[2] = -92,
-	.st_max_limits[0] = -14,
-	.st_max_limits[1] = 92,
-	.st_max_limits[2] = -14,
-};
-
 static struct pinmux_config accel_pin_mux[] = {
-	{"gpmc_wen.gpio2_4",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
+	{"gpmc_ad2.gpio1_2",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
 	{NULL, 0},
 };
+
+/* EEPROM */
+static struct at24_platform_data pepper_eeprom_data = {
+	.byte_len	= SZ_256K / 8,
+	.page_size	= 64,
+	.flags		=AT24_FLAG_ADDR16,
+	.context	= (void *)NULL,
+};
+
 
 /* Setup I2C Buses */
 static void __iomem *am33xx_i2c0_base;
@@ -906,15 +898,28 @@ static struct i2c_board_info pepper_i2c0_boardinfo[] = {
 		.platform_data = &pepper_aic3x_data,
 	},
 	{
-		I2C_BOARD_INFO("lis331dlh", 0x1d),
-		.platform_data = &accel_pdata,
-		.irq = OMAP_GPIO_IRQ(GPIO_TO_PIN(2, 4)),
+		I2C_BOARD_INFO("ds1340", 0x68),
+	},
+	{
+		I2C_BOARD_INFO("24c256", 0x50),
+		.platform_data = &pepper_eeprom_data,
+	},
+};
+
+static struct i2c_board_info pepper_i2c1_boardinfo[] = {
+	{
+		I2C_BOARD_INFO("edt-ft5x06", 0x38),
+		.irq = OMAP_GPIO_IRQ(GPIO_TO_PIN(0, 20)),
+		.platform_data = &pepper_captouch_data,
+	},
+	{
+		I2C_BOARD_INFO("mpu9150", 0x69),
 	},
 };
 
 static struct pinmux_config i2c1_pin_mux[] = {
-	{"mii1_rxerr.i2c1_scl",	OMAP_MUX_MODE3 | AM33XX_SLEWCTRL_SLOW | AM33XX_PULL_ENBL | AM33XX_INPUT_EN},
-	{"mii1_crs.i2c1_sda",	OMAP_MUX_MODE3 | AM33XX_SLEWCTRL_SLOW | AM33XX_PULL_ENBL | AM33XX_INPUT_EN},
+	{"uart0_rtsn.i2c1_scl",	OMAP_MUX_MODE3 | AM33XX_SLEWCTRL_SLOW | AM33XX_PULL_ENBL | AM33XX_INPUT_EN},
+	{"uart0_ctsn.i2c1_sda",	OMAP_MUX_MODE3 | AM33XX_SLEWCTRL_SLOW | AM33XX_PULL_ENBL | AM33XX_INPUT_EN},
 	{NULL, 0},
 };
 
@@ -922,7 +927,9 @@ static void pepper_i2c_init(void)
 {
 	setup_pin_mux(accel_pin_mux);
 	setup_pin_mux(i2c1_pin_mux);
+	setup_pin_mux(captouch_pin_mux);
 	omap_register_i2c_bus(1, 100, pepper_i2c0_boardinfo, ARRAY_SIZE(pepper_i2c0_boardinfo));
+	omap_register_i2c_bus(2, 400, pepper_i2c1_boardinfo, ARRAY_SIZE(pepper_i2c1_boardinfo));
 }
 
 /* SPI */
@@ -1027,7 +1034,7 @@ static void __init pepper_init(void)
 	am33xx_mux_init(board_mux);
 	omap_serial_init();
 	am335x_rtc_init();
-	clkout2_enable();
+	//clkout2_enable();
 	pepper_i2c_init();
 	omap_sdrc_init(NULL, NULL);
 	omap_board_config = pepper_config;
@@ -1037,7 +1044,7 @@ static void __init pepper_init(void)
 	pepper_tsc_init();
 	pepper_audio_init();
 	pepper_ethernet_init();
-	pepper_spi_init();
+	//pepper_spi_init();
 	pepper_usb_init();
 	pepper_wlan_init();
 	user_leds_init();
