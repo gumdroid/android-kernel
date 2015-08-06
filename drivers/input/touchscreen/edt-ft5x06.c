@@ -894,7 +894,18 @@ static struct i2c_driver edt_ft5x06_ts_driver = {
 	.remove   = __devexit_p(edt_ft5x06_ts_remove),
 };
 
-module_i2c_driver(edt_ft5x06_ts_driver);
+static int __init edt_ft5x06_ts_init(void)
+{
+        return i2c_add_driver(&edt_ft5x06_ts_driver);
+}
+
+static void __exit edt_ft5x06_ts_exit(void)
+{
+        i2c_del_driver(&edt_ft5x06_ts_driver);
+}
+
+module_init(edt_ft5x06_ts_init);
+module_exit(edt_ft5x06_ts_exit);
 
 MODULE_AUTHOR("Simon Budig <simon.budig@kernelconcepts.de>");
 MODULE_DESCRIPTION("EDT FT5x06 I2C Touchscreen Driver");
