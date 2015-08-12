@@ -38,6 +38,8 @@
 #include <linux/lis3lv02d.h>
 #include <linux/regulator/fixed.h>
 #include <linux/i2c/at24.h>
+#include <linux/wl12xx.h>
+#include <linux/ti_wilink_st.h>
 
 #include <video/da8xx-fb.h>
 
@@ -399,11 +401,11 @@ static struct omap2_hsmmc_info pepper_mmc[] __initdata = {
 	},
 	{
 		.mmc            = 3, /* Bluetooth & Wifi */
-		.caps           = MMC_CAP_4_BIT_DATA,
+		.caps           = MMC_CAP_4_BIT_DATA | MMC_CAP_POWER_OFF_CARD,
 		.nonremovable	= true,
 		.gpio_cd        = -EINVAL,
 		.gpio_wp	= -EINVAL,
-		.ocr_mask       = MMC_VDD_32_33 | MMC_VDD_33_34, /* 3.3V */
+		.ocr_mask	= MMC_VDD_32_33 | MMC_VDD_33_34, /* 3V3 */
 	},
 	{}      /* Terminator */
 };
@@ -444,7 +446,15 @@ static void __init pepper_mmc_init(void)
 	omap2_hsmmc_init(pepper_mmc);
 }
 
-/* Wifi/Bluetooth Pin Mux */
+/* wilink8 setup */
+struct wl12xx_platform_data pepper_wlan_data __initdata = {
+	.irq = OMAP_GPIO_IRQ(33),
+	.board_ref_clock = WL12XX_REFCLOCK_26, /* 26 MHz */
+        .bt_enable_gpio = GPIO_TO_PIN(1, 0),
+        .wlan_enable_gpio = GPIO_TO_PIN(1, 24),
+};
+
+/* Wifi Pin Mux */
 static struct pinmux_config wlan_pin_mux[] = {
 	{"gpmc_a1.mmc2_dat0",	OMAP_MUX_MODE3 | AM33XX_PIN_INPUT_PULLUP},
 	{"gpmc_a2.mmc2_dat1",	OMAP_MUX_MODE3 | AM33XX_PIN_INPUT_PULLUP},
@@ -452,10 +462,21 @@ static struct pinmux_config wlan_pin_mux[] = {
 	{"gpmc_ben1.mmc2_dat3",	OMAP_MUX_MODE3 | AM33XX_PIN_INPUT_PULLUP},
 	{"gpmc_csn3.mmc2_cmd",	OMAP_MUX_MODE3 | AM33XX_PIN_INPUT_PULLUP},
 	{"gpmc_clk.mmc2_clk",	OMAP_MUX_MODE3 | AM33XX_PIN_INPUT_PULLUP},
-	/* WLAN nReset */
-        {"gpmc_a8.gpio1_24",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
-	/* WLAN nPower down */
-        {"gpmc_wait0.gpio0_30",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
+	/* WLAN Enable */
+        {"gpmc_a8.gpio1_24",	OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT_PULLUP},
+	/* IRQ */
+        {"gpmc_ad1.gpio1_1",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
+	{NULL, 0},
+};
+
+/* Bluetooth Pin Mux */
+static struct pinmux_config bt_pin_mux[] = {
+	{"uart1_ctsn.uart1_ctsn",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"uart1_rtsn.uart1_rtsn",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"uart1_rxd.uart1_rxd",		OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
+	{"uart1_txd.uart1_txd",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	/* BT Enable */
+        {"gpmc_ad0.gpio1_0",	OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT_PULLUP},
 	{NULL, 0},
 };
 
@@ -474,9 +495,11 @@ static struct regulator_init_data pepper_vmmc3 = {
 static struct fixed_voltage_config pepper_wlan = {
 	.supply_name		= "vwlan",
 	.microvolts		= 3300000, /* 3.3V */
-	.gpio			= -EINVAL,
-	.startup_delay		= 0,
+	.gpio			= 56, /* wlan enable */
+	.startup_delay		= 70000,
 	.init_data		= &pepper_vmmc3,
+	.enable_high		= 1,
+	.enabled_at_boot	= 0,
 };
 
 static struct platform_device pepper_wlan_device = {
@@ -490,6 +513,9 @@ static struct platform_device pepper_wlan_device = {
 static void __init pepper_wlan_init(void)
 {
 	setup_pin_mux(wlan_pin_mux);
+	setup_pin_mux(bt_pin_mux);
+	if (wl12xx_set_platform_data(&pepper_wlan_data))
+		pr_err("error setting wl12xx data\n");
 	platform_device_register(&pepper_wlan_device);
 }
 
@@ -1058,6 +1084,7 @@ static void __init pepper_init(void)
         /* Create an alias for gfx/sgx clock */
         if (clk_add_alias("sgx_ck", NULL, "gfx_fclk", NULL))
                 pr_warn("failed to create an alias: gfx_fclk --> sgx_ck\n");
+
 }
 
 static void __init pepper_map_io(void)
