@@ -392,20 +392,12 @@ static struct omap2_hsmmc_info pepper_mmc[] __initdata = {
 		.ocr_mask       = MMC_VDD_32_33 | MMC_VDD_33_34, /* 3.3V */
 	},
 	{
-		.mmc            = 2, /* eMMC */
-		.caps           = MMC_CAP_8_BIT_DATA,
-		.nonremovable	= true,
-		.gpio_cd        = -EINVAL,
-		.gpio_wp	= -EINVAL,
-		.ocr_mask       = MMC_VDD_32_33 | MMC_VDD_33_34, /* 3.3V */
-	},
-	{
 		.mmc            = 3, /* Bluetooth & Wifi */
 		.caps           = MMC_CAP_4_BIT_DATA | MMC_CAP_POWER_OFF_CARD,
 		.nonremovable	= true,
 		.gpio_cd        = -EINVAL,
 		.gpio_wp	= -EINVAL,
-		.ocr_mask	= MMC_VDD_32_33 | MMC_VDD_33_34, /* 3V3 */
+		.ocr_mask	= MMC_VDD_165_195 | MMC_VDD_32_33 | MMC_VDD_33_34, /* 3V3 */
 	},
 	{}      /* Terminator */
 };
@@ -422,37 +414,39 @@ static struct pinmux_config mmc0_pin_mux[] = {
 	{NULL, 0},
 };
 
-/* eMMC/MMC1 pin mux */
-static struct pinmux_config mmc1_pin_mux[] = {
-        {"gpmc_ad3.mmc1_dat3",  OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
-        {"gpmc_ad2.mmc1_dat2",  OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
-        {"gpmc_ad1.mmc1_dat1",  OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
-        {"gpmc_ad0.mmc1_dat0",  OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
-        {"gpmc_csn1.mmc1_clk",  OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLUP},
-        {"gpmc_csn2.mmc1_cmd",  OMAP_MUX_MODE2 | AM33XX_PIN_INPUT_PULLUP},
-        {"gpmc_ad7.mmc1_dat7",  OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
-        {"gpmc_ad6.mmc1_dat6",  OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
-        {"gpmc_ad5.mmc1_dat5",  OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
-        {"gpmc_ad4.mmc1_dat4",  OMAP_MUX_MODE1 | AM33XX_PIN_INPUT_PULLUP},
-	/* eMMC nReset */
-        {"gpmc_wpn.gpio0_31",  OMAP_MUX_MODE7 | AM33XX_PIN_INPUT_PULLUP},
-        {NULL, 0},
-};
-
 static void __init pepper_mmc_init(void)
 {
 	setup_pin_mux(mmc0_pin_mux);
-	setup_pin_mux(mmc1_pin_mux);
 	omap2_hsmmc_init(pepper_mmc);
 }
 
 /* wilink8 setup */
-struct wl12xx_platform_data pepper_wlan_data __initdata = {
-	.irq = OMAP_GPIO_IRQ(33),
-	.board_ref_clock = WL12XX_REFCLOCK_26, /* 26 MHz */
+struct wl12xx_platform_data pepper_wlan_data = {
+	.irq = OMAP_GPIO_IRQ(GPIO_TO_PIN(1, 1)),
+	.board_ref_clock = WL12XX_REFCLOCK_38, /* 38.4 MHz */
         .bt_enable_gpio = GPIO_TO_PIN(1, 0),
         .wlan_enable_gpio = GPIO_TO_PIN(1, 24),
 };
+
+static void wl12xx_bluetooth_enable(void)
+{
+	int status = gpio_request(pepper_wlan_data.bt_enable_gpio, "bt_en\n");
+	if (status < 0)
+		pr_err("Failed to request gpio for bt_enable");
+	pr_info("Configuring bluetooth enable pin...\n");
+	gpio_direction_output(pepper_wlan_data.bt_enable_gpio, 1);
+}
+
+static int wl12xx_set_power(struct device *dev, int slot, int on, int vdd)
+{
+	if (on) {
+		gpio_direction_output(pepper_wlan_data.wlan_enable_gpio, 1);
+		mdelay(70);
+	} else {
+		gpio_direction_output(pepper_wlan_data.wlan_enable_gpio, 0);
+	}
+	return 0;
+}
 
 /* Wifi Pin Mux */
 static struct pinmux_config wlan_pin_mux[] = {
@@ -471,52 +465,75 @@ static struct pinmux_config wlan_pin_mux[] = {
 
 /* Bluetooth Pin Mux */
 static struct pinmux_config bt_pin_mux[] = {
-	{"uart1_ctsn.uart1_ctsn",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
-	{"uart1_rtsn.uart1_rtsn",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"uart1_ctsn.uart1_ctsn",	OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"uart1_rtsn.uart1_rtsn",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT},
 	{"uart1_rxd.uart1_rxd",		OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
-	{"uart1_txd.uart1_txd",		OMAP_MUX_MODE0 | AM33XX_PIN_OUTPUT},
+	{"uart1_txd.uart1_txd",		OMAP_MUX_MODE0 | AM33XX_PULL_ENBL},
 	/* BT Enable */
         {"gpmc_ad0.gpio1_0",	OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT_PULLUP},
 	{NULL, 0},
 };
 
-static struct regulator_consumer_supply pepper_vmmc3_supply[] = {
-	REGULATOR_SUPPLY("vmmc", "omap_hsmmc.2"),
-};
-
-static struct regulator_init_data pepper_vmmc3 = {
-	.constraints = {
-		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
-	},
-	.num_consumer_supplies = ARRAY_SIZE(pepper_vmmc3_supply),
-	.consumer_supplies = pepper_vmmc3_supply,
-};
-
-static struct fixed_voltage_config pepper_wlan = {
-	.supply_name		= "vwlan",
-	.microvolts		= 3300000, /* 3.3V */
-	.gpio			= 56, /* wlan enable */
-	.startup_delay		= 70000,
-	.init_data		= &pepper_vmmc3,
-	.enable_high		= 1,
-	.enabled_at_boot	= 0,
-};
-
-static struct platform_device pepper_wlan_device = {
-	.name		= "reg-fixed-voltage",
-	.id		= 1,
-	.dev = {
-		.platform_data = &pepper_wlan,
-	},
-};
+//static struct regulator_consumer_supply pepper_vmmc3_supply[] = {
+//	REGULATOR_SUPPLY("vmmc", "omap_hsmmc.2"),
+//};
+//
+//static struct regulator_init_data pepper_vmmc3 = {
+//	.constraints = {
+//		.valid_ops_mask = REGULATOR_CHANGE_STATUS,
+//	},
+//	.num_consumer_supplies = ARRAY_SIZE(pepper_vmmc3_supply),
+//	.consumer_supplies = pepper_vmmc3_supply,
+//};
+//
+//static struct fixed_voltage_config pepper_wlan = {
+//	.supply_name		= "vwlan",
+//	.microvolts		= 3300000, /* 3.3V */
+//	.gpio			= 56, /* wlan enable */
+//	.startup_delay		= 70000,
+//	.init_data		= &pepper_vmmc3,
+//	.enable_high		= 1,
+//	.enabled_at_boot	= 0,
+//};
+//
+//static struct platform_device pepper_wlan_device = {
+//	.name		= "reg-fixed-voltage",
+//	.id		= 1,
+//	.dev = {
+//		.platform_data = &pepper_wlan,
+//	},
+//};
 
 static void __init pepper_wlan_init(void)
 {
+	int ret;
+	struct device *dev;
+	struct omap_mmc_platform_data *pdata;
+
 	setup_pin_mux(wlan_pin_mux);
 	setup_pin_mux(bt_pin_mux);
+	wl12xx_bluetooth_enable();
+
 	if (wl12xx_set_platform_data(&pepper_wlan_data))
 		pr_err("error setting wl12xx data\n");
-	platform_device_register(&pepper_wlan_device);
+	dev = pepper_mmc[1].dev;
+	if (!dev) {
+		pr_err("wl12xx mmc device initialization failed\n");
+		goto out;
+	}
+	pdata = dev->platform_data;
+	if (!pdata) {
+		pr_err("Platform data of wl12xx device not set\n");
+		goto out;
+	}
+	ret = gpio_request_one(pepper_wlan_data.wlan_enable_gpio, GPIOF_OUT_INIT_LOW, "wlan_en");
+	if (ret) {
+		pr_err("Error requesting wlan enable gpio: %d\n", ret);
+		goto out;
+	}
+	pdata->slots[0].set_power = wl12xx_set_power;
+out:
+	return;
 }
 
 /* Setup User Buttons as keys */
