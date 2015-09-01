@@ -67,6 +67,7 @@
 #include "devices.h"
 #include "hsmmc.h"
 #include "common.h"
+#include "control.h"
 
 /* Convert GPIO signal to GPIO pin number */
 #define GPIO_TO_PIN(bank, gpio) (32 * (bank) + (gpio))
@@ -393,7 +394,9 @@ static struct omap2_hsmmc_info pepper_mmc[] __initdata = {
 	},
 	{
 		.mmc            = 3, /* Bluetooth & Wifi */
+		.name		= "wl1271",
 		.caps           = MMC_CAP_4_BIT_DATA | MMC_CAP_POWER_OFF_CARD,
+		.pm_caps	= MMC_PM_KEEP_POWER,
 		.nonremovable	= true,
 		.gpio_cd        = -EINVAL,
 		.gpio_wp	= -EINVAL,
@@ -423,7 +426,7 @@ static void __init pepper_mmc_init(void)
 /* wilink8 setup */
 struct wl12xx_platform_data pepper_wlan_data = {
 	.irq = OMAP_GPIO_IRQ(GPIO_TO_PIN(1, 1)),
-	.board_ref_clock = WL12XX_REFCLOCK_38, /* 38.4 MHz */
+	.board_ref_clock = WL12XX_REFCLOCK_38_XTAL, /* 38.4 MHz */
         .bt_enable_gpio = GPIO_TO_PIN(1, 0),
         .wlan_enable_gpio = GPIO_TO_PIN(1, 24),
 };
@@ -439,11 +442,19 @@ static void wl12xx_bluetooth_enable(void)
 
 static int wl12xx_set_power(struct device *dev, int slot, int on, int vdd)
 {
+	int pad_mux_value;
+
 	if (on) {
 		gpio_direction_output(pepper_wlan_data.wlan_enable_gpio, 1);
+		pad_mux_value = readl(AM33XX_CTRL_REGADDR(AM33XX_CONTROL_PADCONF_GPMC_A8_OFFSET));
+		pad_mux_value &= (~AM33XX_PULL_DISA);
+		writel(pad_mux_value, AM33XX_CTRL_REGADDR(AM33XX_CONTROL_PADCONF_GPMC_A8_OFFSET));
 		mdelay(70);
 	} else {
 		gpio_direction_output(pepper_wlan_data.wlan_enable_gpio, 0);
+		pad_mux_value = readl(AM33XX_CTRL_REGADDR(AM33XX_CONTROL_PADCONF_GPMC_A8_OFFSET));
+		pad_mux_value |= AM33XX_PULL_DISA;
+		writel(pad_mux_value, AM33XX_CTRL_REGADDR(AM33XX_CONTROL_PADCONF_GPMC_A8_OFFSET));
 	}
 	return 0;
 }
@@ -460,6 +471,8 @@ static struct pinmux_config wlan_pin_mux[] = {
         {"gpmc_a8.gpio1_24",	OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT_PULLUP},
 	/* IRQ */
         {"gpmc_ad1.gpio1_1",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
+	/* BT Enable */
+        {"gpmc_ad0.gpio1_0",	OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT_PULLUP},
 	{NULL, 0},
 };
 
@@ -469,8 +482,6 @@ static struct pinmux_config bt_pin_mux[] = {
 	{"uart1_rtsn.uart1_rtsn",	OMAP_MUX_MODE0 | AM33XX_PIN_INPUT},
 	{"uart1_rxd.uart1_rxd",		OMAP_MUX_MODE0 | AM33XX_PIN_INPUT_PULLUP},
 	{"uart1_txd.uart1_txd",		OMAP_MUX_MODE0 | AM33XX_PULL_ENBL},
-	/* BT Enable */
-        {"gpmc_ad0.gpio1_0",	OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT_PULLUP},
 	{NULL, 0},
 };
 
@@ -512,6 +523,7 @@ static void __init pepper_wlan_init(void)
 
 	setup_pin_mux(wlan_pin_mux);
 	setup_pin_mux(bt_pin_mux);
+	pepper_wlan_data.platform_quirks = WL12XX_PLATFORM_QUIRK_EDGE_IRQ;
 	wl12xx_bluetooth_enable();
 
 	if (wl12xx_set_platform_data(&pepper_wlan_data))
@@ -950,11 +962,13 @@ static struct i2c_board_info pepper_i2c0_boardinfo[] = {
 };
 
 static struct i2c_board_info pepper_i2c1_boardinfo[] = {
+/*
 	{
 		I2C_BOARD_INFO("edt-ft5x06", 0x38),
 		.irq = OMAP_GPIO_IRQ(GPIO_TO_PIN(0, 20)),
 		.platform_data = &pepper_captouch_data,
 	},
+*/
 	{
 		I2C_BOARD_INFO("mpu9150", 0x69),
 	},
