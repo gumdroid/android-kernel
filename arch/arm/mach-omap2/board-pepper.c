@@ -68,6 +68,10 @@
 #include "hsmmc.h"
 #include "common.h"
 #include "control.h"
+#include "common-board-devices.h"
+
+/* Switch between Pepper43C and Pepper43R */
+//#define PEPPER43_RESISTIVE
 
 /* Convert GPIO signal to GPIO pin number */
 #define GPIO_TO_PIN(bank, gpio) (32 * (bank) + (gpio))
@@ -234,7 +238,9 @@ static void pepper_lcd_init(void)
 // wake = gpio0_5
 // irq = gpio0_20
 static struct pinmux_config captouch_pin_mux[] = {
+#ifndef PEPPER43_RESISTIVE
 	{"spi0_cs0.gpio0_5",		OMAP_MUX_MODE7 | AM33XX_PIN_OUTPUT}, // wake
+#endif
 	{"xdma_event_intr1.gpio0_20",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},  // irq
 	{NULL, 0},
 };
@@ -1028,13 +1034,13 @@ static struct i2c_board_info pepper_i2c0_boardinfo[] = {
 };
 
 static struct i2c_board_info pepper_i2c1_boardinfo[] = {
-/*
+#ifndef PEPPER43_RESISTIVE
 	{
 		I2C_BOARD_INFO("edt-ft5x06", 0x38),
 		.irq = OMAP_GPIO_IRQ(GPIO_TO_PIN(0, 20)),
 		.platform_data = &pepper_captouch_data,
 	},
-*/
+#endif
 	{
 		I2C_BOARD_INFO("mpu9150", 0x69),
 	},
@@ -1070,6 +1076,9 @@ static struct pinmux_config spi0_pin_mux[] = {
 static void pepper_spi_init(void)
 {
 	setup_pin_mux(spi0_pin_mux);
+	printk(KERN_ERR "ASH: registering ADS7846\n");
+	omap_ads7846_init(1, GPIO_TO_PIN(0, 20), 0, NULL);
+	printk(KERN_ERR "ASH: registered ADS7846\n");
 	spi_register_board_info(pepper_spi_slave_info, ARRAY_SIZE(pepper_spi_slave_info));
 }
 
@@ -1167,7 +1176,9 @@ static void __init pepper_init(void)
 	pepper_tsc_init();
 	pepper_audio_init();
 	pepper_ethernet_init();
-	//pepper_spi_init();
+#ifdef PEPPER43_RESISTIVE
+	pepper_spi_init();
+#endif
 	pepper_usb_init();
 	pepper_wlan_init();
 	user_leds_init();

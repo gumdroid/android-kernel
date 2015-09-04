@@ -855,6 +855,7 @@ static void ads7846_report_state(struct ads7846 *ts)
 			dev_vdbg(&ts->spi->dev, "DOWN\n");
 		}
 
+		y = 0x0FFF - y;
 		input_report_abs(input, ABS_X, x);
 		input_report_abs(input, ABS_Y, y);
 		input_report_abs(input, ABS_PRESSURE, ts->pressure_max - Rt);
