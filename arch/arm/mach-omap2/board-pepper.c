@@ -431,13 +431,79 @@ struct wl12xx_platform_data pepper_wlan_data = {
         .wlan_enable_gpio = GPIO_TO_PIN(1, 24),
 };
 
+int plat_kim_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	return 0;
+}
+
+int plat_kim_resume(struct platform_device *pdev)
+{
+	return 0;
+}
+
+int plat_kim_chip_enable(struct kim_data_s *kim_data)
+{
+	int pad_mux_value;
+
+	gpio_direction_output(kim_data->nshutdown, 0);
+	msleep(1);
+	gpio_direction_output(kim_data->nshutdown, 1);
+
+	pad_mux_value = readl(AM33XX_CTRL_REGADDR(AM33XX_CONTROL_PADCONF_GPMC_AD0_OFFSET));
+	pad_mux_value &= (~AM33XX_PULL_DISA);
+	writel(pad_mux_value, AM33XX_CTRL_REGADDR(AM33XX_CONTROL_PADCONF_GPMC_AD0_OFFSET));
+
+	return 0;
+}
+
+int plat_kim_chip_disable(struct kim_data_s *kim_data)
+{
+	int pad_mux_value;
+
+	gpio_direction_output(kim_data->nshutdown, 0);
+
+	pad_mux_value = readl(AM33XX_CTRL_REGADDR(AM33XX_CONTROL_PADCONF_GPMC_AD0_OFFSET));
+	pad_mux_value |= AM33XX_PULL_DISA;
+	writel(pad_mux_value, AM33XX_CTRL_REGADDR(AM33XX_CONTROL_PADCONF_GPMC_AD0_OFFSET));
+
+	return 0;
+}
+
+struct ti_st_plat_data wilink_pdata =  {
+	.nshutdown_gpio = GPIO_TO_PIN(1, 0),
+	.dev_name = "/dev/ttyO1",
+	.flow_cntrl = 1,
+	.baud_rate = 3000000,
+	.suspend = plat_kim_suspend,
+	.resume = plat_kim_resume,
+	.chip_enable = plat_kim_chip_enable,
+	.chip_disable = plat_kim_chip_disable,
+};
+
+static struct platform_device wl12xx_device = {
+	.name		= "kim",
+	.id		= -1,
+	.dev.platform_data = &wilink_pdata,
+};
+
+static struct platform_device btwilink_device = {
+	.name = "btwilink",
+	.id = -1,
+};
+
+
+
 static void wl12xx_bluetooth_enable(void)
 {
+/*
 	int status = gpio_request(pepper_wlan_data.bt_enable_gpio, "bt_en\n");
 	if (status < 0)
 		pr_err("Failed to request gpio for bt_enable");
 	pr_info("Configuring bluetooth enable pin...\n");
-	gpio_direction_output(pepper_wlan_data.bt_enable_gpio, 1);
+	gpio_direction_output(pepper_wlan_data.bt_enable_gpio, 0);
+*/
+	platform_device_register(&wl12xx_device);
+	platform_device_register(&btwilink_device);
 }
 
 static int wl12xx_set_power(struct device *dev, int slot, int on, int vdd)
