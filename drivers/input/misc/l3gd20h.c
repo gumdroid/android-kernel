@@ -65,7 +65,7 @@
 #include <linux/of_graph.h>
 #include <linux/of_device.h>
 
-#include "l3gd20h.h"
+#include <linux/l3gd20h.h>
 
 /* Maximum polled-device-reported rot speed value value in dps */
 #define FS_MAX		32768

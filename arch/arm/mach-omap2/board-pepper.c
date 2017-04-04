@@ -40,6 +40,8 @@
 #include <linux/i2c/at24.h>
 #include <linux/wl12xx.h>
 #include <linux/ti_wilink_st.h>
+#include <linux/lsm303d.h>
+#include <linux/l3gd20h.h>
 
 #include <video/da8xx-fb.h>
 
@@ -248,6 +250,15 @@ static struct pinmux_config captouch_pin_mux[] = {
 static struct edt_ft5x06_platform_data pepper_captouch_data = {
 	.irq_pin = GPIO_TO_PIN(0, 20),
 	.reset_pin = GPIO_TO_PIN(0, 5),
+};
+
+static struct l3gd20h_gyr_platform_data pepper_l3gd20h_gyr_data = {
+	.gpio_int1 = GPIO_TO_PIN(2, 4),
+	.gpio_int2 = GPIO_TO_PIN(0, 30),
+};
+
+static struct lsm303d_acc_platform_data lsm303d_acc_data = {
+	.gpio_int1 = GPIO_TO_PIN(1, 2),
 };
 
 /* ADC controller */
@@ -985,6 +996,8 @@ static struct tps65217_board pepper_tps65217_info = {
 
 static struct pinmux_config accel_pin_mux[] = {
 	{"gpmc_ad2.gpio1_2",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
+	{"gpmc_wen.gpio2_4",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
+	{"gpmc_wait0.gpio0_30",	OMAP_MUX_MODE7 | AM33XX_PIN_INPUT},
 	{NULL, 0},
 };
 
@@ -1021,10 +1034,6 @@ static struct i2c_board_info pepper_i2c0_boardinfo[] = {
 		.platform_data  = &pepper_tps65217_info,
 	},
 	{
-		I2C_BOARD_INFO("tlv320aic3x", 0x1b),
-		.platform_data = &pepper_aic3x_data,
-	},
-	{
 		I2C_BOARD_INFO("ds1340", 0x68),
 	},
 	{
@@ -1034,6 +1043,21 @@ static struct i2c_board_info pepper_i2c0_boardinfo[] = {
 };
 
 static struct i2c_board_info pepper_i2c1_boardinfo[] = {
+	{
+		I2C_BOARD_INFO("lsm303d", 0x1e),
+		.platform_data  = &lsm303d_acc_data,
+	},
+	{
+		I2C_BOARD_INFO("l3gd20h_gyr", 0x6a),
+		.platform_data = &pepper_l3gd20h_gyr_data,
+	},
+	{
+		I2C_BOARD_INFO("tlv320aic3x", 0x1b),
+		.platform_data = &pepper_aic3x_data,
+	},
+};
+
+static struct i2c_board_info pepper_i2c2_boardinfo[] = {
 #ifndef PEPPER43_RESISTIVE
 	{
 		I2C_BOARD_INFO("edt-ft5x06", 0x38),
@@ -1060,12 +1084,13 @@ static struct pinmux_config i2c2_pin_mux[] = {
 
 static void pepper_i2c_init(void)
 {
-	setup_pin_mux(accel_pin_mux);
 	setup_pin_mux(i2c1_pin_mux);
 	setup_pin_mux(i2c2_pin_mux);
 	setup_pin_mux(captouch_pin_mux);
-	omap_register_i2c_bus(1, 100, pepper_i2c0_boardinfo, ARRAY_SIZE(pepper_i2c0_boardinfo));
-	omap_register_i2c_bus(3, 400, pepper_i2c1_boardinfo, ARRAY_SIZE(pepper_i2c1_boardinfo));
+	setup_pin_mux(accel_pin_mux);
+	omap_register_i2c_bus(1, 400, pepper_i2c0_boardinfo, ARRAY_SIZE(pepper_i2c0_boardinfo));
+	omap_register_i2c_bus(2, 400, pepper_i2c1_boardinfo, ARRAY_SIZE(pepper_i2c1_boardinfo));
+	omap_register_i2c_bus(3, 400, pepper_i2c2_boardinfo, ARRAY_SIZE(pepper_i2c2_boardinfo));
 }
 
 /* SPI */

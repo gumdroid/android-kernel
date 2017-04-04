@@ -61,7 +61,7 @@ Revision 1-0-5 2013/10/23
 #include <linux/of_graph.h>
 
 //#include <linux/input/lsm303d.h>
-#include "lsm303d.h"
+#include <linux/lsm303d.h>
 
 
 #define	I2C_AUTO_INCREMENT	(0x80)
