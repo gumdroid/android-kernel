@@ -1052,13 +1052,20 @@ static struct pinmux_config i2c1_pin_mux[] = {
 	{NULL, 0},
 };
 
+static struct pinmux_config i2c2_pin_mux[] = {
+       {"spi0_sclk.i2c2_sda",  OMAP_MUX_MODE2 | AM33XX_SLEWCTRL_SLOW | AM33XX_PULL_ENBL | AM33XX_INPUT_EN},
+       {"spi0_d0.i2c2_scl",    OMAP_MUX_MODE2 | AM33XX_SLEWCTRL_SLOW | AM33XX_PULL_ENBL | AM33XX_INPUT_EN},
+       {NULL, 0},
+};
+
 static void pepper_i2c_init(void)
 {
 	setup_pin_mux(accel_pin_mux);
 	setup_pin_mux(i2c1_pin_mux);
+	setup_pin_mux(i2c2_pin_mux);
 	setup_pin_mux(captouch_pin_mux);
 	omap_register_i2c_bus(1, 100, pepper_i2c0_boardinfo, ARRAY_SIZE(pepper_i2c0_boardinfo));
-	omap_register_i2c_bus(2, 400, pepper_i2c1_boardinfo, ARRAY_SIZE(pepper_i2c1_boardinfo));
+	omap_register_i2c_bus(3, 400, pepper_i2c1_boardinfo, ARRAY_SIZE(pepper_i2c1_boardinfo));
 }
 
 /* SPI */
