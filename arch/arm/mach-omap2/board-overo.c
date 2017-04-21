@@ -32,6 +32,8 @@
 #include <linux/regulator/machine.h>
 #include <linux/regulator/fixed.h>
 #include <linux/spi/spi.h>
+#include <linux/wl12xx.h>
+#include <linux/ti_wilink_st.h>
 
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/nand.h>
@@ -83,6 +85,7 @@
 #define MT9V032_I2C_ADDR	0x5C
 #define MT9V032_I2C_BUS_NUM	3
 #define MT9V032_XCLK		ISP_XCLK_A
+
 
 static void mt9v032_set_clock(struct v4l2_subdev *subdev, int hz)
 {
@@ -676,6 +679,114 @@ static inline void __init overo_init_musb(void)
 static inline void __init overo_init_musb(void) { return; }
 #endif
 
+/* Convert GPIO signal to GPIO pin number */
+#define GPIO_TO_PIN(bank, gpio) (32 * (bank) + (gpio))
+
+struct pinmux_config {
+	const char *string_name; /* signal name format */
+	int val; /* Options for the mux register value */
+};
+
+static void setup_pin_mux(struct pinmux_config *pin_mux)
+{
+	int i;
+
+	for (i = 0; pin_mux->string_name != NULL; pin_mux++)
+		omap_mux_init_signal(pin_mux->string_name, pin_mux->val);
+}
+
+/* wilink8 setup */
+struct wl12xx_platform_data overo_wlan_data = {
+	.irq = OMAP_GPIO_IRQ(GPIO_TO_PIN(2, 26)),
+	.board_ref_clock = WL12XX_REFCLOCK_38_XTAL, /* 38.4 MHz */
+        .bt_enable_gpio = GPIO_TO_PIN(1, 16),
+        .wlan_enable_gpio = GPIO_TO_PIN(1, 26),
+};
+
+/* Wifi Pin Mux */
+static struct pinmux_config wlan_pin_mux[] = {
+	{"sdmmc2_clk.sdmmc2_clk", OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP},
+	{"sdmmc2_cmd.sdmmc2_cmd", OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP},
+	{"sdmmc2_dat0.sdmmc2_dat0", OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP},
+	{"sdmmc2_dat1.sdmmc2_dat1", OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP | OMAP_PIN_OFF_WAKEUPENABLE},
+	{"sdmmc2_dat2.sdmmc2_dat2", OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP},
+	{"sdmmc2_dat3.sdmmc2_dat3", OMAP_MUX_MODE0 | OMAP_PIN_INPUT_PULLUP},
+	{"gpmc_ncs7.gpio_58", OMAP_MUX_MODE4 | OMAP_PIN_INPUT},
+	{"suart3_rts_sd.gpio_164", OMAP_MUX_MODE4 | OMAP_PIN_OUTPUT},
+	{NULL, 0},
+};
+
+/* Bluetooth Pin Mux 
+static struct pinmux_config bt_pin_mux[] = {
+	{NULL, 0},
+};
+*/
+
+struct ti_st_plat_data wilink_pdata =  {
+	.nshutdown_gpio = GPIO_TO_PIN(1, 26),
+	.dev_name = "/dev/ttyO1",
+	.flow_cntrl = 1,
+	.baud_rate = 3000000,
+};
+
+static struct platform_device wl12xx_device = {
+	.name		= "kim",
+	.id		= -1,
+	.dev.platform_data = &wilink_pdata,
+};
+
+static struct platform_device btwilink_device = {
+	.name = "btwilink",
+	.id = -1,
+};
+
+
+static void wl12xx_bluetooth_enable(void)
+{
+/*
+	int status = gpio_request(pepper_wlan_data.bt_enable_gpio, "bt_en\n");
+	if (status < 0)
+		pr_err("Failed to request gpio for bt_enable");
+	pr_info("Configuring bluetooth enable pin...\n");
+	gpio_direction_output(pepper_wlan_data.bt_enable_gpio, 0);
+*/
+	platform_device_register(&wl12xx_device);
+	platform_device_register(&btwilink_device);
+}
+
+/******************TO DO WLINK8**********************************/
+static void __init overo_wlan_init(void)
+{
+	int ret;
+	struct device *dev;
+	struct omap_mmc_platform_data *pdata;
+
+	setup_pin_mux(wlan_pin_mux);
+	overo_wlan_data.platform_quirks = WL12XX_PLATFORM_QUIRK_EDGE_IRQ;
+	wl12xx_bluetooth_enable();
+
+	if (wl12xx_set_platform_data(&overo_wlan_data))
+		pr_err("error setting wl12xx data\n");
+	dev = mmc[1].dev;
+	if (!dev) {
+		printk("wl12xx mmc device initialization failed\n");
+		goto out;
+	}
+	pdata = dev->platform_data;
+	if (!pdata) {
+		printk("Platform data of wl12xx device not set\n");
+		goto out;
+	}
+	ret = gpio_request_one(overo_wlan_data.wlan_enable_gpio, GPIOF_OUT_INIT_LOW, "wlan_en");
+	if (ret) {
+		printk("Error requesting wlan enable gpio: %d\n", ret);
+		goto out;
+	}
+	//pdata->slots[0].set_power = wl12xx_set_power;
+out:
+	return;
+}
+/******************TO DO END**********************************/
 static void __init overo_init(void)
 {
 	int ret;
@@ -698,6 +809,7 @@ static void __init overo_init(void)
 	overo_init_keys();
 	overo_opp_init();
 	overo_camera_init();
+	overo_wlan_init();
 
 	/* Ensure SDRC pins are mux'd for self-refresh */
 	omap_mux_init_signal("sdrc_cke0", OMAP_PIN_OUTPUT);

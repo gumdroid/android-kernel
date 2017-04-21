@@ -21,6 +21,7 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
+#include <linux/skbuff.h>
 
 #ifndef TI_WILINK_ST_H
 #define TI_WILINK_ST_H
