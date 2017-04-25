@@ -40,6 +40,8 @@
 #include <linux/mtd/partitions.h>
 #include <linux/mmc/host.h>
 
+#include <linux/input/edt-ft5x06.h>
+
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/flash.h>
@@ -516,11 +518,55 @@ static struct twl4030_platform_data overo_twldata = {
 	.vmmc1		= &overo_vmmc1,
 };
 
+/* Convert GPIO signal to GPIO pin number */
+#define GPIO_TO_PIN(bank, gpio) (32 * (bank) + (gpio))
+
+struct pinmux_config {
+	const char *string_name; /* signal name format */
+	int val; /* Options for the mux register value */
+};
+
+static void setup_pin_mux(struct pinmux_config *pin_mux)
+{
+	int i;
+
+	for (i = 0; pin_mux->string_name != NULL; pin_mux++)
+		omap_mux_init_signal(pin_mux->string_name, pin_mux->val);
+}
+
+
+static struct edt_ft5x06_platform_data overo_captouch_data = {
+	.irq_pin = GPIO_TO_PIN(0, 10),
+	.reset_pin = GPIO_TO_PIN(1, 31),
+};
+
+static struct i2c_board_info overo_i2c3_boardinfo[] __initdata = {
+	{
+		I2C_BOARD_INFO("edt-ft5x06", 0x38),
+		.irq = OMAP_GPIO_IRQ(GPIO_TO_PIN(0, 10)),
+		.platform_data = &overo_captouch_data,
+	},
+};
+
+
+static struct pinmux_config i2c3_pin_mux[] = {
+       {"i2c3_scl.i2c3_scl",  OMAP_MUX_MODE0 | OMAP_PIN_INPUT},
+       {"i2c3_sda.i2c3_sda",  OMAP_MUX_MODE0 | OMAP_PIN_INPUT},
+       {NULL, 0},
+};
+
+static struct pinmux_config captouch_pin_mux[] = {
+       {"sys_clkout1.gpio_10",  OMAP_MUX_MODE4 | OMAP_PIN_INPUT},
+       {"jtag_emu1.gpio_31",  OMAP_MUX_MODE4 | OMAP_PIN_INPUT},
+       {NULL, 0},
+};
+
 static int __init overo_i2c_init(void)
 {
 	u32 pdata_flags = 0;
 	u32 regulators_flags = TWL_COMMON_REGULATOR_VPLL2;
-
+	setup_pin_mux(i2c3_pin_mux);
+	setup_pin_mux(captouch_pin_mux);
 #if defined(CONFIG_USB_MUSB_HDRC) || \
 	defined (CONFIG_USB_MUSB_HDRC_MODULE)
 	pdata_flags |= TWL_COMMON_PDATA_USB;
@@ -546,6 +592,7 @@ static int __init overo_i2c_init(void)
 	omap3_pmic_init("tps65950", &overo_twldata);
 	/* i2c2 pins are used for gpio */
 	omap_register_i2c_bus(3, 400, NULL, 0);
+	omap_register_i2c_bus(3, 400, overo_i2c3_boardinfo, ARRAY_SIZE(overo_i2c3_boardinfo));
 	return 0;
 }
 
@@ -679,21 +726,6 @@ static inline void __init overo_init_musb(void)
 static inline void __init overo_init_musb(void) { return; }
 #endif
 
-/* Convert GPIO signal to GPIO pin number */
-#define GPIO_TO_PIN(bank, gpio) (32 * (bank) + (gpio))
-
-struct pinmux_config {
-	const char *string_name; /* signal name format */
-	int val; /* Options for the mux register value */
-};
-
-static void setup_pin_mux(struct pinmux_config *pin_mux)
-{
-	int i;
-
-	for (i = 0; pin_mux->string_name != NULL; pin_mux++)
-		omap_mux_init_signal(pin_mux->string_name, pin_mux->val);
-}
 
 /* wilink8 setup */
 struct wl12xx_platform_data overo_wlan_data = {
